@@ -1,26 +1,23 @@
-# Stroomaansluitingen — v15 beste laagselectie
+# Stroomaansluitingen — v16 Experience Builder-header
 
-Deze versie corrigeert een waarschijnlijke oorzaak van het ontbreken van de
-blauwe CEE-aansluitingen.
+Deze versie bouwt voort op de werkende v15.
 
-In eerdere versies werd de **eerste** featurelaag gekozen die
-`AANSLUITPUNT_ID` bevatte. Als de WebMap meerdere lagen met dat veld heeft, kan
-daardoor een laag gekozen worden waarin `BLAUW_230V_*` of `TOTAAL_VERMOGEN`
-niet aanwezig is.
+Alle kaart-, zijbalk-, teller-, zoom- en clipboardfunctionaliteit van v15 blijft behouden.
 
-v15:
-- onderzoekt alle featurelagen met `AANSLUITPUNT_ID`;
-- scoort ze op de volledige veldset uit de Arcade-expressie;
-- kiest automatisch de laag met de meeste relevante velden;
-- geeft extra gewicht aan `TOTAAL_VERMOGEN` en de drie blauwe 230 V-velden;
-- logt in de console alle kandidaatlagen en de gekozen laag;
-- logt de werkelijke field names als belangrijke velden nog ontbreken.
+Alleen de header is aangepast om nauwer overeen te komen met de aangeleverde
+Experience Builder-HTML:
 
-Na deployment moet de console tonen:
+- gebruikt de echte publieke BRUGGE-logo-resource uit het Experience-item;
+- logo en titel zijn als twee aparte flex-items opgebouwd;
+- titel `Stroomaansluitingen` is 20 px en vet;
+- headerhoogte is 58 px;
+- de blauwe achtergrond blijft behouden;
+- op mobiel schaalt het logo en de titel licht terug.
 
-`Stroomaansluitingen app v15.0.0`
+Logo-resource:
 
-Zoek daarna in de console naar:
-- `Kandidaatlagen voor stroomaansluitingen`
-- `Gekozen doellaag`
-- `Opgeloste attribuutvelden`
+`https://www.arcgis.com/sharing/rest/content/items/a0fe59291cae4a8c8a027b5e62c26f7a/resources/images/widget_2/1779611205215.png`
+
+Na deployment hoort in de console te staan:
+
+`Stroomaansluitingen app v16.0.0`

@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=15";
+import { CONFIG } from "./config.js?v=16";
 
-const APP_VERSION = "15.0.0";
+const APP_VERSION = "16.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
