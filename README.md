@@ -1,13 +1,16 @@
-# Stroomaansluitingen — v10 context-zoom
+# Stroomaansluitingen — v11 compacte beginsituatie
 
-Deze versie bouwt voort op v9.
+Deze versie bouwt voort op v10.
 
-Aanpassing:
-- navigeren met `<` en `>` centreert nog steeds op het aansluitpunt;
-- zoomniveau is verlaagd van 18 naar **16.5**;
-- daardoor blijft er duidelijk meer van de omliggende straten en omgeving zichtbaar;
-- de details, highlight en compacte popup blijven hetzelfde werken.
+Nieuw:
+- het blok **Selecteer een stroomaansluiting** is veel compacter;
+- het neemt niet langer bijna het hele zijpaneel in;
+- `[hidden] { display: none !important; }` zorgt ervoor dat het selectieblok
+  volledig verdwijnt zodra een aansluitpunt geselecteerd is;
+- details beginnen daardoor meteen bovenaan;
+- teller, vorige/volgende navigatie, zoomniveau 16.5, compacte popup en
+  Kopieer ID blijven behouden.
 
 Na deployment hoort in de browserconsole te staan:
 
-`Stroomaansluitingen app v10.0.0`
+`Stroomaansluitingen app v11.0.0`

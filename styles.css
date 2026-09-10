@@ -608,3 +608,20 @@ arcgis-map {
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+
+/* v11 — compacte beginsituatie + correcte hidden-weergave */
+[hidden] {
+  display: none !important;
+}
+
+.empty-details {
+  min-height: 125px !important;
+  height: auto !important;
+  justify-content: flex-start !important;
+  padding: 20px 28px !important;
+}
+
+.details-zone {
+  display: block;
+}

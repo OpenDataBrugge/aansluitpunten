@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=10";
+import { CONFIG } from "./config.js?v=11";
 
-const APP_VERSION = "10.0.0";
+const APP_VERSION = "11.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const PAGER_ZOOM_LEVEL = 16.5;
