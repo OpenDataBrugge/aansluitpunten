@@ -3,22 +3,125 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ArcGIS – Kopieer ID</title>
+  <meta name="theme-color" content="#0d3fdb" />
+  <title>Stroomaansluitingen | Stad Brugge</title>
 
   <script type="module" src="https://js.arcgis.com/5.1/"></script>
-  <link rel="stylesheet" href="./styles.css?v=4" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
 </head>
 
 <body>
-  <arcgis-map id="map" popup-component-enabled>
-    <arcgis-zoom slot="top-left"></arcgis-zoom>
-    <arcgis-home slot="top-left"></arcgis-home>
-    <arcgis-search slot="top-right"></arcgis-search>
-  </arcgis-map>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brugge-wordmark" aria-label="Brugge">
+        <span>BRU</span><span>GGE</span>
+      </div>
+      <div class="app-title">Stroomaansluitingen</div>
+    </div>
+
+    <div class="header-actions">
+      <button id="detailsTab" class="header-action is-active" type="button">Details</button>
+      <button id="listTab" class="header-action" type="button">Lijst</button>
+      <button id="mobilePanelToggle" class="icon-action" type="button" aria-label="Toon paneel">☰</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside id="sidePanel" class="side-panel">
+      <section id="detailsPanel" class="panel-view">
+        <div class="pager">
+          <button id="previousFeature" class="pager-button" type="button" aria-label="Vorige aansluiting">&lt;</button>
+          <span id="pagerText" class="pager-text">— van —</span>
+          <button id="nextFeature" class="pager-button" type="button" aria-label="Volgende aansluiting">&gt;</button>
+        </div>
+
+        <div id="noSelection" class="empty-details">
+          <div class="empty-icon">⚡</div>
+          <h1>Selecteer een stroomaansluiting</h1>
+          <p>Klik een punt op de kaart aan of kies een aansluiting in de lijst.</p>
+          <button id="openListFromEmpty" type="button" class="primary-button">Open lijst</button>
+        </div>
+
+        <div id="featureDetails" class="feature-details" hidden>
+          <div class="details-title-row">
+            <h1 id="detailTitle">ID: —</h1>
+          </div>
+
+          <div class="detail-divider"></div>
+
+          <div class="asset-card">
+            <div class="asset-main">
+              <div class="asset-icon" aria-hidden="true">⚡</div>
+              <div class="asset-copy">
+                <strong>Elektrisch aansluitpunt</strong>
+                <span id="assetIdLine">ID: —</span>
+              </div>
+            </div>
+            <button id="copyDetailId" type="button" class="asset-copy-button" title="Kopieer ID">
+              <span aria-hidden="true">⧉</span>
+              <span>Kopieer</span>
+            </button>
+          </div>
+
+          <div id="locationBlock" class="location-block" hidden>
+            <div class="section-label"><span aria-hidden="true">📍</span> LOCATIE</div>
+            <div id="locationPrimary" class="location-primary"></div>
+            <div id="locationSecondary" class="location-secondary"></div>
+          </div>
+
+          <div id="currentBlock" class="current-card" hidden>
+            <div class="current-label">TOTALE STROOMSTERKTE</div>
+            <div id="currentValue" class="current-value"></div>
+          </div>
+
+          <div id="attributesBlock" class="attributes-card" hidden>
+            <div class="attributes-head">
+              <span>Aansluitingen</span>
+              <span>Waarde</span>
+            </div>
+            <div id="attributeRows"></div>
+          </div>
+
+          <div class="details-footer">
+            <span id="footerId">ID: —</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="listPanel" class="panel-view" hidden>
+        <div class="list-toolbar">
+          <label class="list-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="featureSearch" type="search" placeholder="Zoek op ID, locatie of adres" />
+          </label>
+          <div class="list-summary">
+            <span id="resultCount">Laden…</span>
+            <button id="clearSearch" type="button" class="link-button" hidden>Wis filter</button>
+          </div>
+        </div>
+
+        <div id="loadingState" class="state-card">
+          <div class="spinner"></div>
+          <span>Aansluitpunten laden…</span>
+        </div>
+
+        <div id="emptyState" class="state-card" hidden>Geen aansluitpunten gevonden.</div>
+        <div id="featureList" class="feature-list" role="list"></div>
+      </section>
+    </aside>
+
+    <section class="map-panel">
+      <arcgis-map id="map" popup-component-enabled>
+        <arcgis-zoom slot="top-left"></arcgis-zoom>
+        <arcgis-home slot="top-left"></arcgis-home>
+        <arcgis-locate slot="top-left"></arcgis-locate>
+        <arcgis-search slot="top-right"></arcgis-search>
+      </arcgis-map>
+    </section>
+  </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- ?v=4 voorkomt dat GitHub Pages/browser een oudere app.js blijft gebruiken -->
-  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./app.js?v=6"></script>
 </body>
 </html>

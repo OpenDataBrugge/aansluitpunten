@@ -1,24 +1,29 @@
-# ArcGIS Copy-ID app — v4
+# Stroomaansluitingen — v6 Experience-look
 
-Deze versie is specifiek aangepast op de consolefout waarbij GitHub Pages nog
-probeerde te laden via:
+Deze versie is visueel verder afgestemd op de bestaande Stad Brugge Experience:
 
-`https://stadbrugge.maps.arcgis.com/sharing/rest/portals/self`
-
-Voor deze publieke WebMap gebruikt de app nu hard-coded:
-
-`https://www.arcgis.com`
+- blauwe header met compacte Brugge-wordmark;
+- linker detailkolom van ongeveer 500 px;
+- paginering `< 1 van 263 >`;
+- grote `ID:`-titel;
+- donkerblauwe kaart `Elektrisch aansluitpunt`;
+- locatieblok;
+- lichtblauw blok voor totale stroomsterkte indien zo'n attribuut bestaat;
+- aansluitingen/waardenblok indien passende velden bestaan;
+- éénklik `Kopieer` in het detailblok;
+- aparte lijstweergave via de knop `Lijst`;
+- mobiele uitschuifbare zijbalk;
+- bestaande WebMap, symbologie en popup blijven behouden.
 
 ## Configuratie
 
-- WebMap ID: `b7e5456ea5054b3dbb1d9c4802a34ca7`
-- Te kopiëren veld: `AANSLUITPUNT_ID`
-- Geen OAuth nodig
-- Appversie in console: `Aansluitpunten app v4.0.0`
+- WebMap: `b7e5456ea5054b3dbb1d9c4802a34ca7`
+- Kopieerveld: `AANSLUITPUNT_ID`
+- Publieke ArcGIS Online-content; geen OAuth vereist.
 
-## Belangrijk bij GitHub
+## Publiceren
 
-Vervang ALLE oude bestanden in de repository door deze versie, in het bijzonder:
+Vervang in de root van de GitHub Pages repository:
 
 - `index.html`
 - `app.js`
@@ -26,17 +31,18 @@ Vervang ALLE oude bestanden in de repository door deze versie, in het bijzonder:
 - `styles.css`
 - `.nojekyll`
 
-Commit en push daarna de wijzigingen.
+Commit/push en doe na de nieuwe Pages deployment een `Ctrl+F5`.
 
-Open na de nieuwe Pages-deploy de website met Ctrl+F5.
+In de browserconsole hoort te staan:
 
-De browserconsole moet nu letterlijk tonen:
+`Stroomaansluitingen app v6.0.0`
 
-`Aansluitpunten app v4.0.0`
+## Automatische veldherkenning
 
-en:
+De app zoekt zelf velden waarvan naam of alias lijkt op:
 
-`portalUrl: 'https://www.arcgis.com'`
+- locatie/adres/straat/plaats;
+- stroomsterkte/ampère/current;
+- aansluiting/CEE/spanning/voltage/fase/aantal.
 
-Als er nog `stadbrugge.maps.arcgis.com` of een WebMap-ID zonder de laatste `7`
-in de console staat, wordt nog een oude deployment of een oud bestand geladen.
+Als die velden niet bestaan, worden de betreffende detailblokken automatisch verborgen.
