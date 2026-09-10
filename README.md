@@ -1,123 +1,110 @@
-# ArcGIS Copy-ID app
+# ArcGIS Copy-ID app — GitHub Pages
 
-Deze starter laadt de bestaande ArcGIS Online WebMap:
+Deze statische webapp laadt de publieke ArcGIS Online WebMap van Stad Brugge:
 
-`b7e5456ea5054b3dbb1d9c4802a34ca`
+`b7e5456ea5054b3dbb1d9c4802a34ca7`
 
-en voegt aan de popup een echte **Kopieer ID**-actie toe. Na één klik wordt de ingestelde attribuutwaarde naar het systeem-/Windows-klembord geschreven.
+en voegt aan de popup een echte **Kopieer ID**-actie toe.
 
-## 1. Eerst controleren
+De knop kopieert het attribuut:
 
-Open `config.js`.
+`AANSLUITPUNT_ID`
 
-De belangrijkste instelling is:
+naar het systeem-/Windows-klembord.
 
-```js
-copyField: "ID"
-```
+## Publiceren met GitHub Pages
 
-Dit moet de **echte field name** van het attribuut zijn, niet alleen de alias die in ArcGIS Online wordt getoond.
+### 1. Maak een repository
+Maak op GitHub een nieuwe repository, bijvoorbeeld:
 
-Als jouw veld bijvoorbeeld `asset_id` heet:
+`arcgis-aansluitpunten`
 
-```js
-copyField: "asset_id"
-```
+Een publieke repository is de eenvoudigste optie voor GitHub Pages.
 
-## 2. Publieke versus beveiligde WebMap
-
-### Publieke WebMap
-
-Laat dit leeg:
-
-```js
-oauthClientId: ""
-```
-
-### Beveiligde WebMap / alleen organisatie of groep
-
-Maak in ArcGIS Online OAuth-credentials voor user authentication aan en zet de Client ID hier:
-
-```js
-oauthClientId: "JOUW_CLIENT_ID"
-```
-
-Gebruik bij de OAuth-credentials als redirect URL de uiteindelijke URL van de app, bijvoorbeeld:
-
-`https://jouw-app.azurestaticapps.net/`
-
-Als je later een eigen domein gebruikt, voeg ook dat domein als geldige redirect URL toe.
-
-## 3. Lokaal testen
-
-Door browserbeveiliging is het beter de app via een lokale webserver te draaien en niet rechtstreeks met `file://`.
-
-Bijvoorbeeld in de map van dit project:
-
-```bash
-python -m http.server 8000
-```
-
-Open daarna:
-
-`http://localhost:8000`
-
-Voor OAuth-testen moet ook deze lokale URL als toegestane redirect URL in de OAuth-credentials staan.
-
-## 4. Naar GitHub zetten
-
-Maak een lege GitHub repository en plaats deze bestanden in de root:
+### 2. Upload deze bestanden naar de root van de repository
 
 - `index.html`
 - `app.js`
 - `config.js`
 - `styles.css`
-- `staticwebapp.config.json`
+- `.nojekyll`
 
-## 5. Azure Static Web Apps
+`README.md` mag ook mee.
 
-In Azure Portal:
+### 3. Zet GitHub Pages aan
 
-1. Create resource → **Static Web App**
-2. Kies je subscription en resource group
-3. Plan: voor een proof-of-concept kan **Free**; voor productie is **Standard** logischer
-4. Source: **GitHub**
-5. Selecteer repository en branch `main`
-6. Framework/build preset: **Custom**
-7. App location: `/`
-8. Geen API-location
-9. Bij een pure statische app is geen npm-build nodig
+Ga in de repository naar:
 
-Als Azure een GitHub Actions workflow aanmaakt, kun je voor deze app de frontend-build overslaan:
+**Settings → Pages**
 
-```yaml
-app_location: "/"
-output_location: ""
-skip_app_build: true
+Onder **Build and deployment**:
+
+- Source: `Deploy from a branch`
+- Branch: `main`
+- Folder: `/(root)`
+
+Klik op **Save**.
+
+### 4. Open de app
+
+Voor een repository met naam `arcgis-aansluitpunten` wordt de standaard URL:
+
+`https://JOUW-GITHUB-GEBRUIKERSNAAM.github.io/arcgis-aansluitpunten/`
+
+GitHub Pages gebruikt HTTPS. Dat is belangrijk voor `navigator.clipboard.writeText()`.
+
+### 5. Test
+
+1. Open de GitHub Pages URL.
+2. Klik een aansluitpunt op de kaart aan.
+3. De popup verschijnt.
+4. Klik op **Kopieer ID**.
+5. De waarde uit `AANSLUITPUNT_ID` staat in het Windows-klembord.
+6. Plak de waarde in het formulier.
+
+## Configuratie
+
+In `config.js` staat:
+
+```js
+export const CONFIG = {
+  webmapId: "b7e5456ea5054b3dbb1d9c4802a34ca7",
+  portalUrl: "https://stadbrugge.maps.arcgis.com",
+  oauthClientId: "",
+  copyField: "AANSLUITPUNT_ID",
+  copyActionTitle: "Kopieer ID"
+};
 ```
 
-Na deployment krijg je een HTTPS-adres zoals:
+Omdat de WebMap en lagen publiek zijn, hoeft `oauthClientId` niet te worden ingevuld.
 
-`https://<naam>.azurestaticapps.net/`
+## Opmerking
 
-HTTPS is belangrijk voor de moderne Clipboard API.
+De site zelf is publiek bereikbaar wanneer je een publieke GitHub Pages repository gebruikt. Dat verandert niets aan de ArcGIS rechten; in jouw geval zijn kaart en lagen al publiek.
 
-## 6. Testscenario
 
-1. Open de app.
-2. Klik een feature aan.
-3. De bestaande popup uit de WebMap verschijnt.
-4. Onderaan de popup staat **Kopieer ID**.
-5. Klik één keer op die actie.
-6. De waarde van het ingestelde veld staat in het Windows-klembord.
-7. Plak hem in het formulier met de normale plakactie.
+## ArcGIS Online organisatie
 
-Als het veld niet bestaat, wordt in de browserconsole een lijst van beschikbare attributen geschreven. Daarmee is de juiste field name snel te vinden.
+De app gebruikt expliciet de Stad Brugge ArcGIS Online-organisatie:
 
-## Bestanden
+`https://stadbrugge.maps.arcgis.com`
 
-- `index.html` — kaartcomponent en standaard kaarttools
-- `app.js` — OAuth, popup-action en clipboardlogica
-- `config.js` — WebMap-ID, OAuth Client ID en het te kopiëren veld
-- `styles.css` — schermvullende kaart en feedbackmelding
-- `staticwebapp.config.json` — eenvoudige Azure Static Web Apps routing
+De WebMap-ID is:
+
+`b7e5456ea5054b3dbb1d9c4802a34ca7`
+
+De volledige WebMap-ID uit de gedeelde Map Viewer-URL is 32 tekens lang en eindigt op `7`.
+
+
+## v2 - fix voor `#load() Failed to load web map`
+
+In de vorige versie stond `portalUrl` alleen in onze eigen `config.js`.
+Dat configureert de ArcGIS SDK niet automatisch.
+
+Deze versie:
+1. zet `esriConfig.portalUrl` expliciet;
+2. maakt zelf een `WebMap` aan;
+3. geeft de Stad Brugge portal expliciet mee in `portalItem.portal`;
+4. koppelt die WebMap daarna aan het `<arcgis-map>` component.
+
+Dit volgt het patroon uit de ArcGIS Maps SDK-documentatie voor portal items.

@@ -4,32 +4,52 @@ const mapElement = document.getElementById("map");
 const toastElement = document.getElementById("toast");
 
 const [
-  OAuthInfo,
-  identityManager,
-  reactiveUtils,
-  ActionButton
+  esriConfig,
+  WebMap,
+  ActionButton,
+  reactiveUtils
 ] = await $arcgis.import([
-  "@arcgis/core/identity/OAuthInfo.js",
-  "@arcgis/core/identity/IdentityManager.js",
-  "@arcgis/core/core/reactiveUtils.js",
-  "@arcgis/core/support/actions/ActionButton.js"
+  "@arcgis/core/config.js",
+  "@arcgis/core/WebMap.js",
+  "@arcgis/core/support/actions/ActionButton.js",
+  "@arcgis/core/core/reactiveUtils.js"
 ]);
 
-// Registreer OAuth vóór de WebMap wordt geladen.
-// Bij een publieke kaart mag oauthClientId leeg blijven.
-if (CONFIG.oauthClientId?.trim()) {
-  const oauthInfo = new OAuthInfo({
-    appId: CONFIG.oauthClientId.trim(),
-    portalUrl: CONFIG.portalUrl,
-    popup: false,
-    preserveUrlHash: true
+// BELANGRIJK:
+// config.js van deze app is alleen onze eigen configuratie.
+// We moeten de portal-URL ook expliciet aan de ArcGIS SDK doorgeven.
+esriConfig.portalUrl = CONFIG.portalUrl;
+
+// Maak de WebMap expliciet aan en geef de juiste ArcGIS Online-organisatie
+// mee aan het PortalItem. Zo zijn we niet afhankelijk van de standaard
+// www.arcgis.com portal of van timing van het <arcgis-map> component.
+const webmap = new WebMap({
+  portalItem: {
+    id: CONFIG.webmapId,
+    portal: {
+      url: CONFIG.portalUrl
+    }
+  }
+});
+
+mapElement.map = webmap;
+
+try {
+  await webmap.load();
+  console.info("WebMap geladen:", {
+    title: webmap.portalItem?.title,
+    id: webmap.portalItem?.id,
+    portal: webmap.portalItem?.portal?.url
   });
-
-  identityManager.registerOAuthInfos([oauthInfo]);
+} catch (error) {
+  console.error("WebMap laden mislukt:", error);
+  console.error("WebMap configuratie:", {
+    webmapId: CONFIG.webmapId,
+    portalUrl: CONFIG.portalUrl
+  });
+  showToast("WebMap kon niet worden geladen. Open de browserconsole voor details.", true);
+  throw error;
 }
-
-// De WebMap pas nu koppelen, zodat OAuth al geregistreerd is.
-mapElement.setAttribute("item-id", CONFIG.webmapId);
 
 await mapElement.viewOnReady();
 
@@ -37,7 +57,7 @@ const popup = mapElement.popupElement;
 
 if (!popup) {
   throw new Error(
-    "De Popup component kon niet worden gevonden. Controleer of popup-component-enabled op <arcgis-map> staat."
+    "De Popup component kon niet worden gevonden. Controleer popup-component-enabled op <arcgis-map>."
   );
 }
 
@@ -47,15 +67,17 @@ const copyAction = new ActionButton({
   icon: "copy"
 });
 
-// Voeg de knop toe aan de bestaande popup.
-// De popup-inhoud uit de WebMap blijft behouden.
+// Voeg de knop toe aan de bestaande popupconfiguratie van de WebMap.
 popup.actions.add(copyAction);
 
 reactiveUtils.watch(
   () => popup.selectedFeature,
   (feature) => {
     const value = getConfiguredAttribute(feature);
-    copyAction.disabled = value === null || value === undefined || String(value).trim() === "";
+    copyAction.disabled =
+      value === null ||
+      value === undefined ||
+      String(value).trim() === "";
   },
   { initial: true }
 );
@@ -88,12 +110,10 @@ function getConfiguredAttribute(feature) {
   const attributes = feature?.attributes;
   if (!attributes) return null;
 
-  // Eerst exacte veldnaam.
   if (Object.prototype.hasOwnProperty.call(attributes, CONFIG.copyField)) {
     return attributes[CONFIG.copyField];
   }
 
-  // Daarna case-insensitive, zodat ID/id/Id niet onnodig problemen geeft.
   const wanted = CONFIG.copyField.toLowerCase();
   const actualKey = Object.keys(attributes).find(
     (key) => key.toLowerCase() === wanted
@@ -103,14 +123,11 @@ function getConfiguredAttribute(feature) {
 }
 
 async function copyToClipboard(text) {
-  // Azure Static Web Apps draait via HTTPS, dus de Clipboard API kan hier
-  // normaal rechtstreeks worden gebruikt vanuit de klik op de popup-action.
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
     return;
   }
 
-  // Fallback voor oudere/afwijkende browsers.
   const textarea = document.createElement("textarea");
   textarea.value = text;
   textarea.setAttribute("readonly", "");
@@ -138,5 +155,5 @@ function showToast(message, isError = false) {
 
   toastTimer = window.setTimeout(() => {
     toastElement.classList.remove("toast--visible");
-  }, 2200);
+  }, 2600);
 }
