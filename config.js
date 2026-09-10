@@ -1,7 +1,7 @@
 // Pas alleen dit bestand aan voor jouw omgeving.
 export const CONFIG = {
   // Jouw bestaande ArcGIS Online WebMap:
-  webmapId: "b7e5456ea5054b3dbb1d9c4802a34ca",
+  webmapId: "b7e5456ea5054b3dbb1d9c4802a34ca7",
 
   // ArcGIS Online. Gebruik eventueel de organisatie-URL,
   // bijvoorbeeld: https://mijnorganisatie.maps.arcgis.com
