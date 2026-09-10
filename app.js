@@ -1,53 +1,96 @@
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./config.js?v=4";
+
+const APP_VERSION = "4.0.0";
+console.info(`Aansluitpunten app v${APP_VERSION}`);
 
 const mapElement = document.getElementById("map");
 const toastElement = document.getElementById("toast");
 
+// Dit moet vóór elke mogelijke foutmelding bestaan.
+let toastTimer = null;
+
+function showToast(message, isError = false) {
+  window.clearTimeout(toastTimer);
+
+  toastElement.textContent = message;
+  toastElement.classList.toggle("toast--error", isError);
+  toastElement.classList.add("toast--visible");
+
+  toastTimer = window.setTimeout(() => {
+    toastElement.classList.remove("toast--visible");
+  }, 3000);
+}
+
 const [
   esriConfig,
+  PortalItem,
   WebMap,
   ActionButton,
   reactiveUtils
 ] = await $arcgis.import([
   "@arcgis/core/config.js",
+  "@arcgis/core/portal/PortalItem.js",
   "@arcgis/core/WebMap.js",
   "@arcgis/core/support/actions/ActionButton.js",
   "@arcgis/core/core/reactiveUtils.js"
 ]);
 
 // BELANGRIJK:
-// config.js van deze app is alleen onze eigen configuratie.
-// We moeten de portal-URL ook expliciet aan de ArcGIS SDK doorgeven.
-esriConfig.portalUrl = CONFIG.portalUrl;
+// De webmap en lagen zijn publiek in ArcGIS Online.
+// Gebruik daarom de publieke ArcGIS Online portal en NIET
+// stadbrugge.maps.arcgis.com. Dat voorkomt de CORS-call naar
+// /sharing/rest/portals/self op de organisatie-URL.
+esriConfig.portalUrl = "https://www.arcgis.com";
 
-// Maak de WebMap expliciet aan en geef de juiste ArcGIS Online-organisatie
-// mee aan het PortalItem. Zo zijn we niet afhankelijk van de standaard
-// www.arcgis.com portal of van timing van het <arcgis-map> component.
-const webmap = new WebMap({
-  portalItem: {
-    id: CONFIG.webmapId,
-    portal: {
-      url: CONFIG.portalUrl
-    }
-  }
+console.info("Configuratie:", {
+  version: APP_VERSION,
+  webmapId: CONFIG.webmapId,
+  portalUrl: esriConfig.portalUrl,
+  copyField: CONFIG.copyField
 });
 
+let portalItem;
+
+try {
+  portalItem = new PortalItem({
+    id: CONFIG.webmapId
+  });
+
+  await portalItem.load();
+
+  console.info("PortalItem geladen:", {
+    id: portalItem.id,
+    title: portalItem.title,
+    type: portalItem.type,
+    access: portalItem.access,
+    owner: portalItem.owner,
+    portal: portalItem.portal?.url
+  });
+
+  if (portalItem.type !== "Web Map") {
+    throw new Error(
+      `Item ${CONFIG.webmapId} is van type "${portalItem.type}" en niet "Web Map".`
+    );
+  }
+} catch (error) {
+  console.error("PortalItem laden mislukt:", error);
+  console.error(
+    "Controle-URL:",
+    `https://www.arcgis.com/sharing/rest/content/items/${CONFIG.webmapId}?f=pjson`
+  );
+  showToast("ArcGIS Online-item kon niet worden geladen. Zie browserconsole.", true);
+  throw error;
+}
+
+const webmap = new WebMap({ portalItem });
 mapElement.map = webmap;
 
 try {
   await webmap.load();
-  console.info("WebMap geladen:", {
-    title: webmap.portalItem?.title,
-    id: webmap.portalItem?.id,
-    portal: webmap.portalItem?.portal?.url
-  });
+  console.info("WebMap geladen:", webmap.portalItem?.title);
 } catch (error) {
   console.error("WebMap laden mislukt:", error);
-  console.error("WebMap configuratie:", {
-    webmapId: CONFIG.webmapId,
-    portalUrl: CONFIG.portalUrl
-  });
-  showToast("WebMap kon niet worden geladen. Open de browserconsole voor details.", true);
+  showToast("WebMap kon niet worden geladen. Zie browserconsole.", true);
   throw error;
 }
 
@@ -67,7 +110,6 @@ const copyAction = new ActionButton({
   icon: "copy"
 });
 
-// Voeg de knop toe aan de bestaande popupconfiguratie van de WebMap.
 popup.actions.add(copyAction);
 
 reactiveUtils.watch(
@@ -142,18 +184,4 @@ async function copyToClipboard(text) {
   if (!ok) {
     throw new Error("Clipboard fallback failed");
   }
-}
-
-let toastTimer;
-
-function showToast(message, isError = false) {
-  window.clearTimeout(toastTimer);
-
-  toastElement.textContent = message;
-  toastElement.classList.toggle("toast--error", isError);
-  toastElement.classList.add("toast--visible");
-
-  toastTimer = window.setTimeout(() => {
-    toastElement.classList.remove("toast--visible");
-  }, 2600);
 }

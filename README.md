@@ -1,27 +1,24 @@
-# ArcGIS Copy-ID app — GitHub Pages
+# ArcGIS Copy-ID app — v4
 
-Deze statische webapp laadt de publieke ArcGIS Online WebMap van Stad Brugge:
+Deze versie is specifiek aangepast op de consolefout waarbij GitHub Pages nog
+probeerde te laden via:
 
-`b7e5456ea5054b3dbb1d9c4802a34ca7`
+`https://stadbrugge.maps.arcgis.com/sharing/rest/portals/self`
 
-en voegt aan de popup een echte **Kopieer ID**-actie toe.
+Voor deze publieke WebMap gebruikt de app nu hard-coded:
 
-De knop kopieert het attribuut:
+`https://www.arcgis.com`
 
-`AANSLUITPUNT_ID`
+## Configuratie
 
-naar het systeem-/Windows-klembord.
+- WebMap ID: `b7e5456ea5054b3dbb1d9c4802a34ca7`
+- Te kopiëren veld: `AANSLUITPUNT_ID`
+- Geen OAuth nodig
+- Appversie in console: `Aansluitpunten app v4.0.0`
 
-## Publiceren met GitHub Pages
+## Belangrijk bij GitHub
 
-### 1. Maak een repository
-Maak op GitHub een nieuwe repository, bijvoorbeeld:
-
-`arcgis-aansluitpunten`
-
-Een publieke repository is de eenvoudigste optie voor GitHub Pages.
-
-### 2. Upload deze bestanden naar de root van de repository
+Vervang ALLE oude bestanden in de repository door deze versie, in het bijzonder:
 
 - `index.html`
 - `app.js`
@@ -29,82 +26,17 @@ Een publieke repository is de eenvoudigste optie voor GitHub Pages.
 - `styles.css`
 - `.nojekyll`
 
-`README.md` mag ook mee.
+Commit en push daarna de wijzigingen.
 
-### 3. Zet GitHub Pages aan
+Open na de nieuwe Pages-deploy de website met Ctrl+F5.
 
-Ga in de repository naar:
+De browserconsole moet nu letterlijk tonen:
 
-**Settings → Pages**
+`Aansluitpunten app v4.0.0`
 
-Onder **Build and deployment**:
+en:
 
-- Source: `Deploy from a branch`
-- Branch: `main`
-- Folder: `/(root)`
+`portalUrl: 'https://www.arcgis.com'`
 
-Klik op **Save**.
-
-### 4. Open de app
-
-Voor een repository met naam `arcgis-aansluitpunten` wordt de standaard URL:
-
-`https://JOUW-GITHUB-GEBRUIKERSNAAM.github.io/arcgis-aansluitpunten/`
-
-GitHub Pages gebruikt HTTPS. Dat is belangrijk voor `navigator.clipboard.writeText()`.
-
-### 5. Test
-
-1. Open de GitHub Pages URL.
-2. Klik een aansluitpunt op de kaart aan.
-3. De popup verschijnt.
-4. Klik op **Kopieer ID**.
-5. De waarde uit `AANSLUITPUNT_ID` staat in het Windows-klembord.
-6. Plak de waarde in het formulier.
-
-## Configuratie
-
-In `config.js` staat:
-
-```js
-export const CONFIG = {
-  webmapId: "b7e5456ea5054b3dbb1d9c4802a34ca7",
-  portalUrl: "https://stadbrugge.maps.arcgis.com",
-  oauthClientId: "",
-  copyField: "AANSLUITPUNT_ID",
-  copyActionTitle: "Kopieer ID"
-};
-```
-
-Omdat de WebMap en lagen publiek zijn, hoeft `oauthClientId` niet te worden ingevuld.
-
-## Opmerking
-
-De site zelf is publiek bereikbaar wanneer je een publieke GitHub Pages repository gebruikt. Dat verandert niets aan de ArcGIS rechten; in jouw geval zijn kaart en lagen al publiek.
-
-
-## ArcGIS Online organisatie
-
-De app gebruikt expliciet de Stad Brugge ArcGIS Online-organisatie:
-
-`https://stadbrugge.maps.arcgis.com`
-
-De WebMap-ID is:
-
-`b7e5456ea5054b3dbb1d9c4802a34ca7`
-
-De volledige WebMap-ID uit de gedeelde Map Viewer-URL is 32 tekens lang en eindigt op `7`.
-
-
-## v2 - fix voor `#load() Failed to load web map`
-
-In de vorige versie stond `portalUrl` alleen in onze eigen `config.js`.
-Dat configureert de ArcGIS SDK niet automatisch.
-
-Deze versie:
-1. zet `esriConfig.portalUrl` expliciet;
-2. maakt zelf een `WebMap` aan;
-3. geeft de Stad Brugge portal expliciet mee in `portalItem.portal`;
-4. koppelt die WebMap daarna aan het `<arcgis-map>` component.
-
-Dit volgt het patroon uit de ArcGIS Maps SDK-documentatie voor portal items.
+Als er nog `stadbrugge.maps.arcgis.com` of een WebMap-ID zonder de laatste `7`
+in de console staat, wordt nog een oude deployment of een oud bestand geladen.
