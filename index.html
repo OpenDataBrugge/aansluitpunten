@@ -7,14 +7,18 @@
   <title>Stroomaansluitingen | Stad Brugge</title>
 
   <script type="module" src="https://js.arcgis.com/5.1/"></script>
-  <link rel="stylesheet" href="./styles.css?v=12" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
 </head>
+
 <body>
   <header class="app-header">
     <div class="brand">
-      <div class="brugge-wordmark" aria-label="Brugge"><span>BRU</span><span>GGE</span></div>
+      <div class="brugge-wordmark" aria-label="Brugge">
+        <span>BRU</span><span>GGE</span>
+      </div>
       <div class="app-title">Stroomaansluitingen</div>
     </div>
+
     <button id="mobilePanelToggle" class="mobile-toggle" type="button" aria-label="Toon zijpaneel">☰</button>
   </header>
 
@@ -26,7 +30,7 @@
         <button id="nextFeature" class="pager-button" type="button" aria-label="Volgende aansluiting">&gt;</button>
       </div>
 
-      <section class="details-container">
+      <section class="details-scroll">
         <div id="noSelection" class="empty-card">
           <div class="empty-bolt">⚡</div>
           <div>
@@ -36,42 +40,49 @@
         </div>
 
         <div id="featureDetails" class="feature-details is-hidden">
-          <h1 id="detailTitle" class="detail-title">ID: —</h1>
-
-          <div class="asset-card">
-            <div class="asset-main">
-              <span class="asset-bolt">⚡</span>
-              <div class="asset-text">
-                <strong>Elektrisch aansluitpunt</strong>
-                <span id="assetIdLine">ID: —</span>
+          <div class="arcade-card">
+            <div class="arcade-header">
+              <div class="arcade-header-main">
+                <strong>⚡ Elektrisch aansluitpunt</strong>
+                <span id="headerId">ID: —</span>
               </div>
+
+              <button id="copyDetailId" class="copy-button" type="button" title="Kopieer ID">
+                <span aria-hidden="true">⧉</span>
+                <span>Kopieer</span>
+              </button>
             </div>
-            <button id="copyDetailId" class="copy-button" type="button">⧉ Kopieer</button>
-          </div>
 
-          <div id="locationBlock" class="location-block is-hidden">
-            <div class="eyebrow">📍 LOCATIE</div>
-            <div id="locationPrimary" class="location-primary"></div>
-            <div id="locationSecondary" class="location-secondary"></div>
-          </div>
+            <div class="location-section">
+              <div class="section-kicker">📍 Locatie</div>
+              <div id="adres" class="adres"></div>
+              <div id="ligging" class="ligging"></div>
+            </div>
 
-          <div id="currentBlock" class="current-card is-hidden">
-            <div class="current-label">TOTALE STROOMSTERKTE</div>
-            <div id="currentValue" class="current-value"></div>
-          </div>
+            <div class="total-section">
+              <div class="total-label">Totale stroomsterkte</div>
+              <strong id="totaal" class="total-value">0 A</strong>
+            </div>
 
-          <div id="attributesBlock" class="attributes-card is-hidden">
-            <div class="attributes-head"><span>Aansluitingen</span><span>Waarde</span></div>
-            <div id="attributeRows"></div>
-          </div>
+            <div id="connectionsSection" class="connections-section is-hidden">
+              <div class="table-head">
+                <span>Aansluitingen</span>
+                <span>Aantal</span>
+              </div>
 
-          <div class="details-footer"><span id="footerId">ID: —</span></div>
+              <div id="stopcontactSection"></div>
+              <div id="blauwSection"></div>
+              <div id="roodSection"></div>
+            </div>
+
+            <div id="footerId" class="arcade-footer">ID: —</div>
+          </div>
         </div>
       </section>
     </aside>
 
     <section class="map-panel">
-      <arcgis-map id="map" popup-component-enabled>
+      <arcgis-map id="map">
         <arcgis-zoom slot="top-left"></arcgis-zoom>
         <arcgis-home slot="top-left"></arcgis-home>
         <arcgis-locate slot="top-left"></arcgis-locate>
@@ -81,6 +92,7 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=12"></script>
+
+  <script type="module" src="./app.js?v=13"></script>
 </body>
 </html>

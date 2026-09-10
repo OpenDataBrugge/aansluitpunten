@@ -1,14 +1,41 @@
-# Stroomaansluitingen — v12 clean rebuild
+# Stroomaansluitingen — v13 Arcade-sidebar
 
-Deze versie is schoon opnieuw opgebouwd om de conflicterende CSS uit v8-v11 te verwijderen.
+Deze versie doet twee belangrijke dingen:
 
-Belangrijkste fix:
-- het blok **Selecteer een stroomaansluiting** is exact 116 px hoog;
-- zodra een punt geselecteerd is, verdwijnt dat blok via `.is-hidden { display:none !important; }`;
-- er zijn geen dubbele `.empty-details`/`.details-zone` CSS-regels meer;
-- details nemen daarna meteen de bovenkant van het zijpaneel in;
-- teller/navigatie, zoom 16.5, compacte popup en Kopieer ID blijven behouden.
+1. De popup op de kaart is volledig verwijderd.
+   - De featurelaag-popups worden uitgeschakeld.
+   - Kaartklikken worden met `hitTest()` afgehandeld.
+   - De aangeklikte feature vult alleen het zijpaneel.
 
-Na deployment moet de console tonen:
+2. Het zijpaneel volgt de aangeleverde Arcade-expressie:
+   - donkerblauwe header `Elektrisch aansluitpunt`;
+   - ID in de header;
+   - kopieerknop blijft behouden;
+   - locatie met `Adres` en `Omschrijving_locatie`;
+   - `TOTAAL_VERMOGEN` als totale stroomsterkte;
+   - gewoon stopcontact;
+   - blauwe CEE-groep 230 V;
+   - rode CEE-groep 380 V;
+   - rijen met waarde 0 worden niet getoond;
+   - footer met ID.
 
-`Stroomaansluitingen app v12.0.0`
+Exact gebruikte velden:
+- `AANSLUITPUNT_ID`
+- `Adres`
+- `Omschrijving_locatie`
+- `TOTAAL_VERMOGEN`
+- `STOPCONTACT_16A`
+- `BLAUW_230V_16A`
+- `BLAUW_230V_32A`
+- `BLAUW_230V_63A`
+- `ROOD_380V_16A`
+- `ROOD_380V_32A`
+- `ROOD_380V_63A`
+- `ROOD_380V_125A`
+- `ROOD_380V_250A`
+
+De teller en vorige/volgende navigatie blijven werken en zoomen naar niveau 16.5.
+
+Na deployment hoort in de console te staan:
+
+`Stroomaansluitingen app v13.0.0`

@@ -1,26 +1,28 @@
-import { CONFIG } from "./config.js?v=12";
+import { CONFIG } from "./config.js?v=13";
 
-const APP_VERSION = "12.0.0";
+const APP_VERSION = "13.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
+
 const mapElement = $("map");
 const toastElement = $("toast");
 const sidePanel = $("sidePanel");
 const mobilePanelToggle = $("mobilePanelToggle");
+
 const noSelection = $("noSelection");
 const featureDetails = $("featureDetails");
-const detailTitle = $("detailTitle");
-const assetIdLine = $("assetIdLine");
+const headerId = $("headerId");
 const footerId = $("footerId");
 const copyDetailId = $("copyDetailId");
-const locationBlock = $("locationBlock");
-const locationPrimary = $("locationPrimary");
-const locationSecondary = $("locationSecondary");
-const currentBlock = $("currentBlock");
-const currentValue = $("currentValue");
-const attributesBlock = $("attributesBlock");
-const attributeRows = $("attributeRows");
+const adresElement = $("adres");
+const liggingElement = $("ligging");
+const totaalElement = $("totaal");
+const connectionsSection = $("connectionsSection");
+const stopcontactSection = $("stopcontactSection");
+const blauwSection = $("blauwSection");
+const roodSection = $("roodSection");
+
 const previousFeatureButton = $("previousFeature");
 const nextFeatureButton = $("nextFeature");
 const pagerText = $("pagerText");
@@ -33,7 +35,22 @@ let selectedFeature = null;
 let selectedIndex = -1;
 let layerView = null;
 let highlightHandle = null;
-let fieldProfile = null;
+
+const FIELDS = {
+  id: "AANSLUITPUNT_ID",
+  adres: "Adres",
+  ligging: "Omschrijving_locatie",
+  totaal: "TOTAAL_VERMOGEN",
+  stop16: "STOPCONTACT_16A",
+  blauw16: "BLAUW_230V_16A",
+  blauw32: "BLAUW_230V_32A",
+  blauw63: "BLAUW_230V_63A",
+  rood16: "ROOD_380V_16A",
+  rood32: "ROOD_380V_32A",
+  rood63: "ROOD_380V_63A",
+  rood125: "ROOD_380V_125A",
+  rood250: "ROOD_380V_250A"
+};
 
 function showToast(message, isError = false) {
   clearTimeout(toastTimer);
@@ -43,75 +60,238 @@ function showToast(message, isError = false) {
   toastTimer = setTimeout(() => toastElement.classList.remove("toast--visible"), 2200);
 }
 
-mobilePanelToggle.addEventListener("click", () => sidePanel.classList.toggle("is-open"));
+mobilePanelToggle.addEventListener("click", () => {
+  sidePanel.classList.toggle("is-open");
+});
 
-const [esriConfig, PortalItem, WebMap, PopupTemplate, CustomContent, reactiveUtils] = await $arcgis.import([
+const [
+  esriConfig,
+  PortalItem,
+  WebMap
+] = await $arcgis.import([
   "@arcgis/core/config.js",
   "@arcgis/core/portal/PortalItem.js",
-  "@arcgis/core/WebMap.js",
-  "@arcgis/core/PopupTemplate.js",
-  "@arcgis/core/popup/content/CustomContent.js",
-  "@arcgis/core/core/reactiveUtils.js"
+  "@arcgis/core/WebMap.js"
 ]);
 
 esriConfig.portalUrl = "https://www.arcgis.com";
 
 const portalItem = new PortalItem({ id: CONFIG.webmapId });
 await portalItem.load();
-if (portalItem.type !== "Web Map") throw new Error(`Item ${CONFIG.webmapId} is geen Web Map.`);
+
+if (portalItem.type !== "Web Map") {
+  throw new Error(`Item ${CONFIG.webmapId} is geen Web Map.`);
+}
 
 const webmap = new WebMap({ portalItem });
 mapElement.map = webmap;
+
 await webmap.loadAll();
 await mapElement.viewOnReady();
 
 const view = mapElement.view;
-const popup = mapElement.popupElement;
 
 targetLayer = await findLayerWithField(webmap, CONFIG.copyField);
-if (!targetLayer) throw new Error(`Geen laag gevonden met veld ${CONFIG.copyField}.`);
+
+if (!targetLayer) {
+  throw new Error(`Geen featurelaag gevonden met veld ${CONFIG.copyField}.`);
+}
 
 objectIdField = targetLayer.objectIdField;
-fieldProfile = buildFieldProfile(targetLayer.fields, CONFIG.copyField);
-try { layerView = await view.whenLayerView(targetLayer); } catch (e) { console.warn(e); }
-installCompactPopup();
+
+// Geen popups meer op de kaart.
+for (const layer of webmap.allLayers.toArray()) {
+  if ("popupEnabled" in layer) {
+    layer.popupEnabled = false;
+  }
+}
+
+try {
+  layerView = await view.whenLayerView(targetLayer);
+} catch (error) {
+  console.warn("LayerView niet beschikbaar:", error);
+}
+
 await loadFeatureIndex();
 
-reactiveUtils.watch(
-  () => popup?.selectedFeature,
-  (feature) => {
-    if (!feature) return;
-    const value = getAttribute(feature, CONFIG.copyField);
-    if (value != null && String(value).trim() !== "") selectFeature(feature);
-  },
-  { initial: true }
-);
+// Zelf kaartklikken afhandelen: selectie gaat naar de zijbalk, niet naar een popup.
+view.on("click", async (event) => {
+  try {
+    const response = await view.hitTest(event, { include: [targetLayer] });
+    const hit = response.results.find(
+      (result) => result?.graphic?.layer === targetLayer
+    );
+
+    if (!hit?.graphic) {
+      return;
+    }
+
+    const oid = getObjectId(hit.graphic);
+    const feature = allFeatures.find(
+      (candidate) => Number(getObjectId(candidate)) === Number(oid)
+    ) || hit.graphic;
+
+    selectFeature(feature);
+  } catch (error) {
+    console.warn("Kaartselectie mislukt:", error);
+  }
+});
 
 copyDetailId.addEventListener("click", async () => {
-  await handleCopy(getAttribute(selectedFeature, CONFIG.copyField));
+  await handleCopy(getAttribute(selectedFeature, FIELDS.id));
 });
+
 previousFeatureButton.addEventListener("click", () => navigateRelative(-1));
 nextFeatureButton.addEventListener("click", () => navigateRelative(1));
 
+async function findLayerWithField(map, fieldName) {
+  for (const layer of map.allLayers.toArray()) {
+    if (layer.type !== "feature") continue;
+
+    try {
+      await layer.load();
+      const hasField = layer.fields?.some(
+        (field) => field.name.toLowerCase() === fieldName.toLowerCase()
+      );
+
+      if (hasField) {
+        console.info("Doellaag:", layer.title);
+        return layer;
+      }
+    } catch (error) {
+      console.warn(`Laag overslaan: ${layer.title}`, error);
+    }
+  }
+
+  return null;
+}
+
+async function loadFeatureIndex() {
+  const query = targetLayer.createQuery();
+  query.where = "1=1";
+  query.outFields = ["*"];
+  query.returnGeometry = true;
+
+  const result = await targetLayer.queryFeatures(query);
+
+  allFeatures = result.features.sort((a, b) =>
+    String(getAttribute(a, FIELDS.id) ?? "").localeCompare(
+      String(getAttribute(b, FIELDS.id) ?? ""),
+      "nl",
+      { numeric: true, sensitivity: "base" }
+    )
+  );
+
+  syncPager();
+}
+
 function selectFeature(feature) {
+  if (!feature) return;
+
   selectedFeature = feature;
   const oid = getObjectId(feature);
-  selectedIndex = allFeatures.findIndex((f) => Number(getObjectId(f)) === Number(oid));
 
-  // Expliciete klassen i.p.v. alleen het HTML hidden-attribuut.
+  selectedIndex = allFeatures.findIndex(
+    (candidate) => Number(getObjectId(candidate)) === Number(oid)
+  );
+
   noSelection.classList.add("is-hidden");
   featureDetails.classList.remove("is-hidden");
+
   renderDetails(feature);
   updateHighlight(feature);
   syncPager();
 
-  if (window.innerWidth <= 900) sidePanel.classList.add("is-open");
+  if (window.innerWidth <= 900) {
+    sidePanel.classList.add("is-open");
+  }
+}
+
+function renderDetails(feature) {
+  const id = textValue(feature, FIELDS.id);
+  const adres = textValue(feature, FIELDS.adres);
+  const ligging = textValue(feature, FIELDS.ligging);
+  const totaal = numberValue(feature, FIELDS.totaal);
+
+  headerId.textContent = `ID: ${id}`;
+  footerId.textContent = `ID: ${id}`;
+  adresElement.textContent = adres;
+  liggingElement.textContent = ligging;
+  totaalElement.textContent = `${formatNumber(totaal)} A`;
+
+  stopcontactSection.replaceChildren();
+  blauwSection.replaceChildren();
+  roodSection.replaceChildren();
+
+  let hasAnyConnection = false;
+
+  const stop16 = numberValue(feature, FIELDS.stop16);
+  if (stop16 !== 0) {
+    stopcontactSection.appendChild(createRow("🔌 Stopcontact 16 A", stop16));
+    hasAnyConnection = true;
+  }
+
+  const blueRows = [
+    ["CEE 16 A", numberValue(feature, FIELDS.blauw16)],
+    ["CEE 32 A", numberValue(feature, FIELDS.blauw32)],
+    ["CEE 63 A", numberValue(feature, FIELDS.blauw63)]
+  ].filter(([, value]) => value !== 0);
+
+  if (blueRows.length) {
+    blauwSection.appendChild(createGroup("🔵 Blauw — 230 V", "blue"));
+    for (const [label, value] of blueRows) {
+      blauwSection.appendChild(createRow(label, value));
+    }
+    hasAnyConnection = true;
+  }
+
+  const redRows = [
+    ["CEE 16 A", numberValue(feature, FIELDS.rood16)],
+    ["CEE 32 A", numberValue(feature, FIELDS.rood32)],
+    ["CEE 63 A", numberValue(feature, FIELDS.rood63)],
+    ["CEE 125 A", numberValue(feature, FIELDS.rood125)],
+    ["CEE 250 A", numberValue(feature, FIELDS.rood250)]
+  ].filter(([, value]) => value !== 0);
+
+  if (redRows.length) {
+    roodSection.appendChild(createGroup("🔴 Rood — 380 V", "red"));
+    for (const [label, value] of redRows) {
+      roodSection.appendChild(createRow(label, value));
+    }
+    hasAnyConnection = true;
+  }
+
+  connectionsSection.classList.toggle("is-hidden", !hasAnyConnection);
+}
+
+function createGroup(label, className) {
+  const group = document.createElement("div");
+  group.className = `connection-group ${className}`;
+  group.textContent = label;
+  return group;
+}
+
+function createRow(label, value) {
+  const row = document.createElement("div");
+  row.className = "connection-row";
+
+  const labelElement = document.createElement("span");
+  labelElement.textContent = label;
+
+  const valueElement = document.createElement("span");
+  valueElement.className = "count";
+  valueElement.textContent = formatNumber(value);
+
+  row.append(labelElement, valueElement);
+  return row;
 }
 
 async function navigateRelative(delta) {
   if (!allFeatures.length) return;
+
   let index = selectedIndex;
   if (index < 0) index = delta > 0 ? -1 : 0;
+
   const next = index + delta;
   if (next < 0 || next >= allFeatures.length) return;
 
@@ -122,128 +302,25 @@ async function navigateRelative(delta) {
     try {
       previousFeatureButton.disabled = true;
       nextFeatureButton.disabled = true;
+
       await view.goTo(
-        { target: feature.geometry, zoom: CONFIG.pagerZoom ?? 16.5 },
-        { duration: 700, easing: "ease-in-out" }
+        {
+          target: feature.geometry,
+          zoom: CONFIG.pagerZoom ?? 16.5
+        },
+        {
+          duration: 700,
+          easing: "ease-in-out"
+        }
       );
-      await popup.open({ features: [feature], location: feature.geometry });
     } catch (error) {
-      if (error?.name !== "AbortError") console.warn("Navigatie mislukt:", error);
+      if (error?.name !== "AbortError") {
+        console.warn("Navigatie mislukt:", error);
+      }
     } finally {
       syncPager();
     }
   }
-}
-
-function renderDetails(feature) {
-  const idValue = String(getAttribute(feature, CONFIG.copyField) ?? "—");
-  detailTitle.textContent = `ID: ${idValue}`;
-  assetIdLine.textContent = `ID: ${idValue}`;
-  footerId.textContent = `ID: ${idValue}`;
-
-  const locationValues = readFields(feature, fieldProfile.locationFields);
-  locationBlock.classList.toggle("is-hidden", locationValues.length === 0);
-  if (locationValues.length) {
-    locationPrimary.textContent = locationValues[0];
-    locationSecondary.textContent = locationValues.slice(1).join(" · ");
-    locationSecondary.classList.toggle("is-hidden", locationValues.length < 2);
-  }
-
-  const current = firstValue(feature, fieldProfile.currentFields);
-  currentBlock.classList.toggle("is-hidden", current == null);
-  if (current != null) currentValue.textContent = formatAmpere(current);
-
-  const rows = getConnectionRows(feature);
-  attributeRows.replaceChildren();
-  attributesBlock.classList.toggle("is-hidden", rows.length === 0);
-  rows.slice(0, 7).forEach((row) => {
-    const div = document.createElement("div");
-    div.className = "attribute-row";
-    const label = document.createElement("span");
-    label.textContent = row.label;
-    const value = document.createElement("span");
-    value.className = "value";
-    value.textContent = row.value;
-    div.append(label, value);
-    attributeRows.appendChild(div);
-  });
-}
-
-function installCompactPopup() {
-  const customContent = new CustomContent({
-    outFields: ["*"],
-    creator: (event) => createCompactPopupContent(event.graphic)
-  });
-  targetLayer.popupTemplate = new PopupTemplate({
-    outFields: ["*"],
-    title: `ID: {${CONFIG.copyField}}`,
-    content: [customContent],
-    overwriteActions: true,
-    actions: []
-  });
-}
-
-function createCompactPopupContent(feature) {
-  const root = document.createElement("div");
-  root.style.cssText = "font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.3;width:100%;max-width:390px;color:#17191c";
-  const idValue = String(getAttribute(feature, CONFIG.copyField) ?? "—");
-  const locationValues = readFields(feature, fieldProfile.locationFields);
-  const current = firstValue(feature, fieldProfile.currentFields);
-  const rows = getConnectionRows(feature).slice(0, 5);
-
-  const card = document.createElement("div");
-  card.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;background:#214b7b;color:white;padding:9px 10px;border-radius:5px";
-  const text = document.createElement("div");
-  text.innerHTML = `<strong style="display:block;font-size:12px">⚡ Elektrisch aansluitpunt</strong><span style="display:block;font-size:10px;margin-top:2px">ID: ${escapeHtml(idValue)}</span>`;
-  const copy = document.createElement("button");
-  copy.type = "button";
-  copy.textContent = "⧉ Kopieer";
-  copy.style.cssText = "border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.08);color:white;border-radius:3px;padding:5px 7px;font:inherit;font-size:10px;cursor:pointer";
-  copy.addEventListener("click", () => handleCopy(idValue));
-  card.append(text, copy);
-  root.append(card);
-
-  if (locationValues.length) {
-    const loc = document.createElement("div");
-    loc.style.cssText = "padding:8px 9px 7px;font-size:10px";
-    loc.innerHTML = `<div style="font-size:9px;color:#83878e;margin-bottom:2px">📍 LOCATIE</div><div style="font-size:11px">${escapeHtml(locationValues[0])}</div>${locationValues[1] ? `<div style="color:#565b63;margin-top:1px">${escapeHtml(locationValues[1])}</div>` : ""}`;
-    root.append(loc);
-  }
-
-  if (current != null) {
-    const box = document.createElement("div");
-    box.style.cssText = "background:#e7f3ff;border:1px solid #a9cfee;padding:8px 9px;margin-top:2px";
-    box.innerHTML = `<div style="font-size:8px;color:#3167a5">TOTALE STROOMSTERKTE</div><strong style="display:block;font-size:12px;margin-top:2px">${escapeHtml(formatAmpere(current))}</strong>`;
-    root.append(box);
-  }
-
-  if (rows.length) {
-    const table = document.createElement("div");
-    table.style.cssText = "border:1px solid #ededf0;margin-top:5px";
-    const head = document.createElement("div");
-    head.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr)65px;background:#f4f4f4;padding:5px 7px;font-weight:bold;font-size:9px";
-    head.innerHTML = "<span>Aansluitingen</span><span style='text-align:right'>Waarde</span>";
-    table.append(head);
-    rows.forEach((row, i) => {
-      const line = document.createElement("div");
-      line.style.cssText = `display:grid;grid-template-columns:minmax(0,1fr) 65px;padding:4px 7px;font-size:9px;background:${i % 2 === 0 ? "#fff0f0" : "#fff"}`;
-      const l = document.createElement("span"); l.textContent = row.label;
-      const v = document.createElement("span"); v.textContent = row.value; v.style.textAlign = "right";
-      line.append(l, v); table.append(line);
-    });
-    root.append(table);
-  }
-  return root;
-}
-
-async function loadFeatureIndex() {
-  const q = targetLayer.createQuery();
-  q.where = "1=1"; q.outFields = ["*"]; q.returnGeometry = true;
-  const result = await targetLayer.queryFeatures(q);
-  allFeatures = result.features.sort((a, b) =>
-    String(getAttribute(a, CONFIG.copyField) ?? "").localeCompare(String(getAttribute(b, CONFIG.copyField) ?? ""), "nl", { numeric: true, sensitivity: "base" })
-  );
-  syncPager();
 }
 
 function syncPager() {
@@ -253,88 +330,116 @@ function syncPager() {
     nextFeatureButton.disabled = true;
     return;
   }
+
   const current = selectedIndex >= 0 ? selectedIndex + 1 : 0;
   pagerText.textContent = `${current} van ${allFeatures.length}`;
-  previousFeatureButton.disabled = selectedIndex <= 0;
-  nextFeatureButton.disabled = selectedIndex < 0 || selectedIndex >= allFeatures.length - 1;
-}
 
-async function findLayerWithField(map, fieldName) {
-  for (const layer of map.allLayers.toArray()) {
-    if (layer.type !== "feature") continue;
-    try {
-      await layer.load();
-      if (layer.fields?.some((f) => f.name.toLowerCase() === fieldName.toLowerCase())) return layer;
-    } catch (e) { console.warn(`Laag overslaan: ${layer.title}`, e); }
-  }
-  return null;
+  previousFeatureButton.disabled = selectedIndex <= 0;
+  nextFeatureButton.disabled =
+    selectedIndex < 0 || selectedIndex >= allFeatures.length - 1;
 }
 
 function updateHighlight(feature) {
-  highlightHandle?.remove(); highlightHandle = null;
+  highlightHandle?.remove();
+  highlightHandle = null;
+
   if (!layerView) return;
+
   const oid = getObjectId(feature);
   if (oid == null) return;
-  try { highlightHandle = layerView.highlight(oid); } catch (e) { console.warn(e); }
+
+  try {
+    highlightHandle = layerView.highlight(oid);
+  } catch (error) {
+    console.warn("Highlight mislukt:", error);
+  }
 }
 
-function buildFieldProfile(fields, copyField) {
-  const usable = (fields || []).filter((f) => f.name.toLowerCase() !== copyField.toLowerCase() && !["oid","geometry","global-id","guid","blob","raster"].includes(f.type));
-  const pick = (terms, limit) => usable
-    .map((field) => ({ field, rank: scoreField(field, terms) }))
-    .filter((x) => x.rank < 999)
-    .sort((a,b) => a.rank - b.rank)
-    .slice(0, limit)
-    .map((x) => x.field.name);
-  return {
-    locationFields: pick(["locatie","location","adres","address","straat","street","plaats","site","gebouw","naam","name"], 2),
-    currentFields: pick(["totale_stroomsterkte","totale stroomsterkte","stroomsterkte","ampere","ampère","current"], 2),
-    connectionFields: pick(["aansluiting","aansluitingen","cee","spanning","voltage","380","400","230","fase","phase","stekker","stopcontact","vermogen","power","aantal","count"], 7)
-  };
-}
-function scoreField(field, terms) {
-  const hay = `${field.name} ${field.alias}`.toLowerCase();
-  let best = 999;
-  terms.forEach((term, i) => { if (hay.includes(term)) best = Math.min(best, i); });
-  return best;
-}
-function getConnectionRows(feature) {
-  return (fieldProfile?.connectionFields || []).flatMap((name) => {
-    const field = targetLayer.fields.find((f) => f.name === name);
-    const value = getAttribute(feature, name);
-    return value == null || String(value).trim() === "" ? [] : [{ label: field?.alias || name, value: formatAttributeValue(value) }];
-  });
-}
-function readFields(feature, names = []) {
-  return names.map((n) => getAttribute(feature, n)).filter((v) => v != null && String(v).trim() !== "").map((v) => String(v).trim()).filter((v,i,a) => a.indexOf(v) === i);
-}
-function firstValue(feature, names = []) {
-  for (const n of names) { const v = getAttribute(feature, n); if (v != null && String(v).trim() !== "") return v; }
-  return null;
-}
 function getObjectId(feature) {
   if (!feature?.attributes) return null;
-  if (objectIdField && feature.attributes[objectIdField] != null) return feature.attributes[objectIdField];
-  const key = Object.keys(feature.attributes).find((n) => n.toLowerCase() === "objectid");
+
+  if (objectIdField && feature.attributes[objectIdField] != null) {
+    return feature.attributes[objectIdField];
+  }
+
+  const key = Object.keys(feature.attributes).find(
+    (name) => name.toLowerCase() === "objectid"
+  );
+
   return key ? feature.attributes[key] : null;
 }
+
 function getAttribute(feature, fieldName) {
-  const attrs = feature?.attributes; if (!attrs) return null;
-  if (Object.prototype.hasOwnProperty.call(attrs, fieldName)) return attrs[fieldName];
-  const actual = Object.keys(attrs).find((n) => n.toLowerCase() === fieldName.toLowerCase());
-  return actual ? attrs[actual] : null;
+  const attributes = feature?.attributes;
+  if (!attributes) return null;
+
+  if (Object.prototype.hasOwnProperty.call(attributes, fieldName)) {
+    return attributes[fieldName];
+  }
+
+  const wanted = fieldName.toLowerCase();
+  const actual = Object.keys(attributes).find(
+    (name) => name.toLowerCase() === wanted
+  );
+
+  return actual ? attributes[actual] : null;
 }
-function formatAmpere(value) { const t = String(value).trim(); return /a$/i.test(t) ? t : `${t} A`; }
-function formatAttributeValue(value) { return typeof value === "number" ? new Intl.NumberFormat("nl-BE").format(value) : String(value); }
-function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
+
+function textValue(feature, fieldName) {
+  const value = getAttribute(feature, fieldName);
+  return value == null ? "" : String(value);
+}
+
+function numberValue(feature, fieldName) {
+  const raw = getAttribute(feature, fieldName);
+
+  if (raw == null || raw === "") {
+    return 0;
+  }
+
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("nl-BE", {
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
 async function handleCopy(value) {
-  if (value == null || String(value).trim() === "") return showToast(`Veld ${CONFIG.copyField} is leeg.`, true);
-  try { await copyToClipboard(String(value)); showToast(`✓ Gekopieerd: ${value}`); }
-  catch (e) { console.error(e); showToast("Kopiëren is mislukt.", true); }
+  if (value == null || String(value).trim() === "") {
+    showToast(`Veld ${CONFIG.copyField} is leeg.`, true);
+    return;
+  }
+
+  try {
+    await copyToClipboard(String(value));
+    showToast(`✓ Gekopieerd: ${value}`);
+  } catch (error) {
+    console.error("Kopiëren mislukt:", error);
+    showToast("Kopiëren naar het klembord is mislukt.", true);
+  }
 }
+
 async function copyToClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-  const ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", "");
-  ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
-  const ok = document.execCommand("copy"); ta.remove(); if (!ok) throw new Error("Clipboard fallback failed");
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const ok = document.execCommand("copy");
+  textarea.remove();
+
+  if (!ok) {
+    throw new Error("Clipboard fallback failed");
+  }
 }
