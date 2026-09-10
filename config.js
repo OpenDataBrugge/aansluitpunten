@@ -5,7 +5,7 @@ export const CONFIG = {
 
   // ArcGIS Online. Gebruik eventueel de organisatie-URL,
   // bijvoorbeeld: https://mijnorganisatie.maps.arcgis.com
-  portalUrl: "https://www.arcgis.com",
+  portalUrl: "https://stadbrugge.maps.arcgis.com",
 
   // Zet hier de Client ID van je ArcGIS Online OAuth-credentials.
   // Laat leeg als de WebMap en alle gebruikte services publiek zijn.
