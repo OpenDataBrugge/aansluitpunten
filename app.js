@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=13";
+import { CONFIG } from "./config.js?v=14";
 
-const APP_VERSION = "13.0.0";
+const APP_VERSION = "14.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
@@ -35,21 +35,73 @@ let selectedFeature = null;
 let selectedIndex = -1;
 let layerView = null;
 let highlightHandle = null;
+let FIELD = null;
 
-const FIELDS = {
-  id: "AANSLUITPUNT_ID",
-  adres: "Adres",
-  ligging: "Omschrijving_locatie",
-  totaal: "TOTAAL_VERMOGEN",
-  stop16: "STOPCONTACT_16A",
-  blauw16: "BLAUW_230V_16A",
-  blauw32: "BLAUW_230V_32A",
-  blauw63: "BLAUW_230V_63A",
-  rood16: "ROOD_380V_16A",
-  rood32: "ROOD_380V_32A",
-  rood63: "ROOD_380V_63A",
-  rood125: "ROOD_380V_125A",
-  rood250: "ROOD_380V_250A"
+// Gewenste semantische velden. We lossen ze na layer.load() op naar de
+// werkelijke field name. Daardoor werken kleine naam/aliasverschillen ook.
+const FIELD_SPECS = {
+  id: {
+    exact: ["AANSLUITPUNT_ID"],
+    tokens: ["aansluitpunt", "id"]
+  },
+  adres: {
+    exact: ["Adres", "ADRES"],
+    tokens: ["adres"]
+  },
+  ligging: {
+    exact: ["Omschrijving_locatie", "OMSCHRIJVING_LOCATIE"],
+    tokens: ["omschrijving", "locatie"]
+  },
+  totaal: {
+    exact: [
+      "TOTAAL_VERMOGEN",
+      "TOTAAL_STROOMSTERKTE",
+      "TOTALE_STROOMSTERKTE",
+      "STROOMSTERKTE_TOTAAL"
+    ],
+    tokenAlternatives: [
+      ["totaal", "vermogen"],
+      ["totaal", "stroomsterkte"],
+      ["totale", "stroomsterkte"],
+      ["stroomsterkte", "totaal"]
+    ]
+  },
+  stop16: {
+    exact: ["STOPCONTACT_16A"],
+    tokens: ["stopcontact", "16"]
+  },
+  blauw16: {
+    exact: ["BLAUW_230V_16A"],
+    tokens: ["blauw", "230", "16"]
+  },
+  blauw32: {
+    exact: ["BLAUW_230V_32A"],
+    tokens: ["blauw", "230", "32"]
+  },
+  blauw63: {
+    exact: ["BLAUW_230V_63A"],
+    tokens: ["blauw", "230", "63"]
+  },
+  rood16: {
+    exact: ["ROOD_380V_16A"],
+    tokens: ["rood", "380", "16"]
+  },
+  rood32: {
+    exact: ["ROOD_380V_32A"],
+    tokens: ["rood", "380", "32"]
+  },
+  rood63: {
+    exact: ["ROOD_380V_63A"],
+    tokens: ["rood", "380", "63"]
+  },
+  rood125: {
+    exact: ["ROOD_380V_125A"],
+    tokens: ["rood", "380", "125"]
+  },
+  rood250: {
+    exact: ["ROOD_380V_250A"],
+    tokens: ["rood", "380", "250"]
+  }
 };
 
 function showToast(message, isError = false) {
@@ -97,9 +149,14 @@ if (!targetLayer) {
   throw new Error(`Geen featurelaag gevonden met veld ${CONFIG.copyField}.`);
 }
 
+await targetLayer.load();
 objectIdField = targetLayer.objectIdField;
+FIELD = resolveFields(targetLayer.fields);
 
-// Geen popups meer op de kaart.
+console.info("Opgeloste attribuutvelden:");
+console.table(FIELD);
+
+// Geen popups op de kaart: alle details gaan uitsluitend naar de zijbalk.
 for (const layer of webmap.allLayers.toArray()) {
   if ("popupEnabled" in layer) {
     layer.popupEnabled = false;
@@ -114,7 +171,6 @@ try {
 
 await loadFeatureIndex();
 
-// Zelf kaartklikken afhandelen: selectie gaat naar de zijbalk, niet naar een popup.
 view.on("click", async (event) => {
   try {
     const response = await view.hitTest(event, { include: [targetLayer] });
@@ -138,7 +194,7 @@ view.on("click", async (event) => {
 });
 
 copyDetailId.addEventListener("click", async () => {
-  await handleCopy(getAttribute(selectedFeature, FIELDS.id));
+  await handleCopy(getFieldValue(selectedFeature, "id"));
 });
 
 previousFeatureButton.addEventListener("click", () => navigateRelative(-1));
@@ -166,6 +222,58 @@ async function findLayerWithField(map, fieldName) {
   return null;
 }
 
+function resolveFields(fields) {
+  const resolved = {};
+
+  for (const [key, spec] of Object.entries(FIELD_SPECS)) {
+    resolved[key] = resolveField(fields, spec);
+  }
+
+  return resolved;
+}
+
+function resolveField(fields, spec) {
+  const exactNames = spec.exact || [];
+
+  for (const wanted of exactNames) {
+    const exact = fields.find(
+      (field) => field.name.toLowerCase() === wanted.toLowerCase()
+    );
+    if (exact) return exact.name;
+  }
+
+  // Daarna ook exact op alias.
+  for (const wanted of exactNames) {
+    const exactAlias = fields.find(
+      (field) => String(field.alias || "").toLowerCase() === wanted.toLowerCase()
+    );
+    if (exactAlias) return exactAlias.name;
+  }
+
+  const alternatives = spec.tokenAlternatives || (spec.tokens ? [spec.tokens] : []);
+
+  for (const tokens of alternatives) {
+    const match = fields.find((field) => {
+      const haystack = normalizeFieldText(`${field.name} ${field.alias || ""}`);
+      return tokens.every((token) =>
+        haystack.includes(normalizeFieldText(token))
+      );
+    });
+
+    if (match) return match.name;
+  }
+
+  return null;
+}
+
+function normalizeFieldText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 async function loadFeatureIndex() {
   const query = targetLayer.createQuery();
   query.where = "1=1";
@@ -175,13 +283,14 @@ async function loadFeatureIndex() {
   const result = await targetLayer.queryFeatures(query);
 
   allFeatures = result.features.sort((a, b) =>
-    String(getAttribute(a, FIELDS.id) ?? "").localeCompare(
-      String(getAttribute(b, FIELDS.id) ?? ""),
+    String(getFieldValue(a, "id") ?? "").localeCompare(
+      String(getFieldValue(b, "id") ?? ""),
       "nl",
       { numeric: true, sensitivity: "base" }
     )
   );
 
+  console.info(`${allFeatures.length} aansluitpunten geladen.`);
   syncPager();
 }
 
@@ -202,21 +311,39 @@ function selectFeature(feature) {
   updateHighlight(feature);
   syncPager();
 
+  console.info("Geselecteerde waarden:", {
+    id: getFieldValue(feature, "id"),
+    totaal: getFieldValue(feature, "totaal"),
+    blauw16: getFieldValue(feature, "blauw16"),
+    blauw32: getFieldValue(feature, "blauw32"),
+    blauw63: getFieldValue(feature, "blauw63"),
+    rood16: getFieldValue(feature, "rood16"),
+    rood32: getFieldValue(feature, "rood32"),
+    rood63: getFieldValue(feature, "rood63"),
+    rood125: getFieldValue(feature, "rood125"),
+    rood250: getFieldValue(feature, "rood250")
+  });
+
   if (window.innerWidth <= 900) {
     sidePanel.classList.add("is-open");
   }
 }
 
 function renderDetails(feature) {
-  const id = textValue(feature, FIELDS.id);
-  const adres = textValue(feature, FIELDS.adres);
-  const ligging = textValue(feature, FIELDS.ligging);
-  const totaal = numberValue(feature, FIELDS.totaal);
+  const id = textFieldValue(feature, "id");
+  const adres = textFieldValue(feature, "adres");
+  const ligging = textFieldValue(feature, "ligging");
+
+  const totaalRaw = getFieldValue(feature, "totaal");
+  const totaal = parseNumericValue(totaalRaw);
 
   headerId.textContent = `ID: ${id}`;
   footerId.textContent = `ID: ${id}`;
+
   adresElement.textContent = adres;
   liggingElement.textContent = ligging;
+
+  // Net zoals in de Arcade-expressie blijft deze sectie altijd zichtbaar.
   totaalElement.textContent = `${formatNumber(totaal)} A`;
 
   stopcontactSection.replaceChildren();
@@ -225,39 +352,46 @@ function renderDetails(feature) {
 
   let hasAnyConnection = false;
 
-  const stop16 = numberValue(feature, FIELDS.stop16);
+  const stop16 = numericFieldValue(feature, "stop16");
+
   if (stop16 !== 0) {
-    stopcontactSection.appendChild(createRow("🔌 Stopcontact 16 A", stop16));
+    stopcontactSection.appendChild(
+      createRow("🔌 Stopcontact 16 A", stop16)
+    );
     hasAnyConnection = true;
   }
 
   const blueRows = [
-    ["CEE 16 A", numberValue(feature, FIELDS.blauw16)],
-    ["CEE 32 A", numberValue(feature, FIELDS.blauw32)],
-    ["CEE 63 A", numberValue(feature, FIELDS.blauw63)]
+    ["CEE 16 A", numericFieldValue(feature, "blauw16")],
+    ["CEE 32 A", numericFieldValue(feature, "blauw32")],
+    ["CEE 63 A", numericFieldValue(feature, "blauw63")]
   ].filter(([, value]) => value !== 0);
 
   if (blueRows.length) {
     blauwSection.appendChild(createGroup("🔵 Blauw — 230 V", "blue"));
+
     for (const [label, value] of blueRows) {
       blauwSection.appendChild(createRow(label, value));
     }
+
     hasAnyConnection = true;
   }
 
   const redRows = [
-    ["CEE 16 A", numberValue(feature, FIELDS.rood16)],
-    ["CEE 32 A", numberValue(feature, FIELDS.rood32)],
-    ["CEE 63 A", numberValue(feature, FIELDS.rood63)],
-    ["CEE 125 A", numberValue(feature, FIELDS.rood125)],
-    ["CEE 250 A", numberValue(feature, FIELDS.rood250)]
+    ["CEE 16 A", numericFieldValue(feature, "rood16")],
+    ["CEE 32 A", numericFieldValue(feature, "rood32")],
+    ["CEE 63 A", numericFieldValue(feature, "rood63")],
+    ["CEE 125 A", numericFieldValue(feature, "rood125")],
+    ["CEE 250 A", numericFieldValue(feature, "rood250")]
   ].filter(([, value]) => value !== 0);
 
   if (redRows.length) {
     roodSection.appendChild(createGroup("🔴 Rood — 380 V", "red"));
+
     for (const [label, value] of redRows) {
       roodSection.appendChild(createRow(label, value));
     }
+
     hasAnyConnection = true;
   }
 
@@ -369,35 +503,61 @@ function getObjectId(feature) {
   return key ? feature.attributes[key] : null;
 }
 
-function getAttribute(feature, fieldName) {
-  const attributes = feature?.attributes;
-  if (!attributes) return null;
+function getFieldValue(feature, semanticKey) {
+  const fieldName = FIELD?.[semanticKey];
 
-  if (Object.prototype.hasOwnProperty.call(attributes, fieldName)) {
-    return attributes[fieldName];
+  if (!fieldName || !feature?.attributes) {
+    return null;
   }
 
-  const wanted = fieldName.toLowerCase();
-  const actual = Object.keys(attributes).find(
-    (name) => name.toLowerCase() === wanted
-  );
-
-  return actual ? attributes[actual] : null;
+  return feature.attributes[fieldName] ?? null;
 }
 
-function textValue(feature, fieldName) {
-  const value = getAttribute(feature, fieldName);
+function textFieldValue(feature, semanticKey) {
+  const value = getFieldValue(feature, semanticKey);
   return value == null ? "" : String(value);
 }
 
-function numberValue(feature, fieldName) {
-  const raw = getAttribute(feature, fieldName);
+function numericFieldValue(feature, semanticKey) {
+  return parseNumericValue(getFieldValue(feature, semanticKey));
+}
 
-  if (raw == null || raw === "") {
-    return 0;
+// Robuuster dan Number(value):
+//  "63"       -> 63
+//  "63,0"     -> 63
+//  "63 A"     -> 63
+//  "1.250,5"  -> 1250.5
+function parseNumericValue(raw) {
+  if (raw == null || raw === "") return 0;
+
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) ? raw : 0;
   }
 
-  const value = Number(raw);
+  let text = String(raw).trim();
+  if (!text) return 0;
+
+  text = text.replace(/\s+/g, "");
+  text = text.replace(/[^\d,.\-+]/g, "");
+
+  if (!text) return 0;
+
+  const hasComma = text.includes(",");
+  const hasDot = text.includes(".");
+
+  if (hasComma && hasDot) {
+    // Belgische notatie: 1.250,5
+    if (text.lastIndexOf(",") > text.lastIndexOf(".")) {
+      text = text.replace(/\./g, "").replace(",", ".");
+    } else {
+      // Engelse notatie: 1,250.5
+      text = text.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    text = text.replace(",", ".");
+  }
+
+  const value = Number(text);
   return Number.isFinite(value) ? value : 0;
 }
 

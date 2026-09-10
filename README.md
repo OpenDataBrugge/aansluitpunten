@@ -1,41 +1,21 @@
-# Stroomaansluitingen — v13 Arcade-sidebar
+# Stroomaansluitingen — v14 field fix
 
-Deze versie doet twee belangrijke dingen:
+Deze versie corrigeert het uitlezen van `TOTAAL_VERMOGEN` en de blauwe/rode
+aansluitingen.
 
-1. De popup op de kaart is volledig verwijderd.
-   - De featurelaag-popups worden uitgeschakeld.
-   - Kaartklikken worden met `hitTest()` afgehandeld.
-   - De aangeklikte feature vult alleen het zijpaneel.
+Aanpassingen:
+- exacte veldnamen worden eerst gebruikt;
+- daarna wordt ook op alias en betekenisvolle tokens gezocht;
+- numerieke waarden worden robuust geparsed, ook bij waarden zoals `63,0`,
+  `63 A` of Belgische duizendtallen;
+- totale stroomsterkte blijft altijd zichtbaar, zoals in de Arcade-expressie;
+- blauwe CEE-sectie wordt getoond zodra één van de blauwe waarden niet 0 is;
+- rode CEE-sectie werkt hetzelfde;
+- in de browserconsole staat een tabel `Opgeloste attribuutvelden`;
+- bij elke selectie worden de ruwe relevante waarden gelogd.
 
-2. Het zijpaneel volgt de aangeleverde Arcade-expressie:
-   - donkerblauwe header `Elektrisch aansluitpunt`;
-   - ID in de header;
-   - kopieerknop blijft behouden;
-   - locatie met `Adres` en `Omschrijving_locatie`;
-   - `TOTAAL_VERMOGEN` als totale stroomsterkte;
-   - gewoon stopcontact;
-   - blauwe CEE-groep 230 V;
-   - rode CEE-groep 380 V;
-   - rijen met waarde 0 worden niet getoond;
-   - footer met ID.
+De popup blijft volledig uitgeschakeld.
 
-Exact gebruikte velden:
-- `AANSLUITPUNT_ID`
-- `Adres`
-- `Omschrijving_locatie`
-- `TOTAAL_VERMOGEN`
-- `STOPCONTACT_16A`
-- `BLAUW_230V_16A`
-- `BLAUW_230V_32A`
-- `BLAUW_230V_63A`
-- `ROOD_380V_16A`
-- `ROOD_380V_32A`
-- `ROOD_380V_63A`
-- `ROOD_380V_125A`
-- `ROOD_380V_250A`
+Na deployment moet de console tonen:
 
-De teller en vorige/volgende navigatie blijven werken en zoomen naar niveau 16.5.
-
-Na deployment hoort in de console te staan:
-
-`Stroomaansluitingen app v13.0.0`
+`Stroomaansluitingen app v14.0.0`
