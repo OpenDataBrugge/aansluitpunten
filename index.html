@@ -7,7 +7,7 @@
   <title>Stroomaansluitingen | Stad Brugge</title>
 
   <script type="module" src="https://js.arcgis.com/5.1/"></script>
-  <link rel="stylesheet" href="./styles.css?v=6" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
 </head>
 
 <body>
@@ -19,35 +19,30 @@
       <div class="app-title">Stroomaansluitingen</div>
     </div>
 
-    <div class="header-actions">
-      <button id="detailsTab" class="header-action is-active" type="button">Details</button>
-      <button id="listTab" class="header-action" type="button">Lijst</button>
-      <button id="mobilePanelToggle" class="icon-action" type="button" aria-label="Toon paneel">☰</button>
-    </div>
+    <button id="mobilePanelToggle" class="icon-action" type="button" aria-label="Toon zijpaneel">☰</button>
   </header>
 
   <main class="app-shell">
     <aside id="sidePanel" class="side-panel">
-      <section id="detailsPanel" class="panel-view">
-        <div class="pager">
-          <button id="previousFeature" class="pager-button" type="button" aria-label="Vorige aansluiting">&lt;</button>
-          <span id="pagerText" class="pager-text">— van —</span>
-          <button id="nextFeature" class="pager-button" type="button" aria-label="Volgende aansluiting">&gt;</button>
-        </div>
+      <div class="pager">
+        <button id="previousFeature" class="pager-button" type="button" aria-label="Vorige aansluiting">&lt;</button>
+        <span id="pagerText" class="pager-text">0 van 0</span>
+        <button id="nextFeature" class="pager-button" type="button" aria-label="Volgende aansluiting">&gt;</button>
+      </div>
 
+      <section id="detailsZone" class="details-zone">
         <div id="noSelection" class="empty-details">
           <div class="empty-icon">⚡</div>
-          <h1>Selecteer een stroomaansluiting</h1>
-          <p>Klik een punt op de kaart aan of kies een aansluiting in de lijst.</p>
-          <button id="openListFromEmpty" type="button" class="primary-button">Open lijst</button>
+          <div>
+            <h1>Selecteer een stroomaansluiting</h1>
+            <p>Klik een punt op de kaart aan om de details te bekijken.</p>
+          </div>
         </div>
 
         <div id="featureDetails" class="feature-details" hidden>
           <div class="details-title-row">
             <h1 id="detailTitle">ID: —</h1>
           </div>
-
-          <div class="detail-divider"></div>
 
           <div class="asset-card">
             <div class="asset-main">
@@ -57,6 +52,7 @@
                 <span id="assetIdLine">ID: —</span>
               </div>
             </div>
+
             <button id="copyDetailId" type="button" class="asset-copy-button" title="Kopieer ID">
               <span aria-hidden="true">⧉</span>
               <span>Kopieer</span>
@@ -88,25 +84,29 @@
         </div>
       </section>
 
-      <section id="listPanel" class="panel-view" hidden>
+      <section class="list-zone">
+        <div class="list-heading">
+          <strong>Aansluitingen</strong>
+          <span id="resultCount">Laden…</span>
+        </div>
+
         <div class="list-toolbar">
           <label class="list-search">
             <span aria-hidden="true">⌕</span>
             <input id="featureSearch" type="search" placeholder="Zoek op ID, locatie of adres" />
           </label>
-          <div class="list-summary">
-            <span id="resultCount">Laden…</span>
-            <button id="clearSearch" type="button" class="link-button" hidden>Wis filter</button>
+          <button id="clearSearch" type="button" class="link-button" hidden>Wis filter</button>
+        </div>
+
+        <div class="list-content">
+          <div id="loadingState" class="state-card">
+            <div class="spinner"></div>
+            <span>Aansluitpunten laden…</span>
           </div>
-        </div>
 
-        <div id="loadingState" class="state-card">
-          <div class="spinner"></div>
-          <span>Aansluitpunten laden…</span>
+          <div id="emptyState" class="state-card" hidden>Geen aansluitpunten gevonden.</div>
+          <div id="featureList" class="feature-list" role="list"></div>
         </div>
-
-        <div id="emptyState" class="state-card" hidden>Geen aansluitpunten gevonden.</div>
-        <div id="featureList" class="feature-list" role="list"></div>
       </section>
     </aside>
 
@@ -122,6 +122,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 </html>

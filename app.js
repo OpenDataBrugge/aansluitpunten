@@ -1,18 +1,16 @@
-import { CONFIG } from "./config.js?v=6";
+import { CONFIG } from "./config.js?v=10";
 
-const APP_VERSION = "6.0.0";
+const APP_VERSION = "10.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
+
+const PAGER_ZOOM_LEVEL = 16.5;
 
 const $ = (id) => document.getElementById(id);
 
 const mapElement = $("map");
 const toastElement = $("toast");
-const detailsPanel = $("detailsPanel");
-const listPanel = $("listPanel");
-const detailsTab = $("detailsTab");
-const listTab = $("listTab");
-const mobilePanelToggle = $("mobilePanelToggle");
 const sidePanel = $("sidePanel");
+const mobilePanelToggle = $("mobilePanelToggle");
 
 const noSelection = $("noSelection");
 const featureDetails = $("featureDetails");
@@ -60,18 +58,6 @@ function showToast(message, isError = false) {
   toastTimer = setTimeout(() => toastElement.classList.remove("toast--visible"), 2200);
 }
 
-function showPanel(name) {
-  const showDetails = name === "details";
-  detailsPanel.hidden = !showDetails;
-  listPanel.hidden = showDetails;
-  detailsTab.classList.toggle("is-active", showDetails);
-  listTab.classList.toggle("is-active", !showDetails);
-}
-
-detailsTab.addEventListener("click", () => showPanel("details"));
-listTab.addEventListener("click", () => showPanel("list"));
-$("openListFromEmpty").addEventListener("click", () => showPanel("list"));
-
 mobilePanelToggle.addEventListener("click", () => {
   sidePanel.classList.toggle("is-open");
 });
@@ -80,13 +66,15 @@ const [
   esriConfig,
   PortalItem,
   WebMap,
-  ActionButton,
+  PopupTemplate,
+  CustomContent,
   reactiveUtils
 ] = await $arcgis.import([
   "@arcgis/core/config.js",
   "@arcgis/core/portal/PortalItem.js",
   "@arcgis/core/WebMap.js",
-  "@arcgis/core/support/actions/ActionButton.js",
+  "@arcgis/core/PopupTemplate.js",
+  "@arcgis/core/popup/content/CustomContent.js",
   "@arcgis/core/core/reactiveUtils.js"
 ]);
 
@@ -132,36 +120,26 @@ if (!targetLayer) {
     console.warn("LayerView niet beschikbaar:", error);
   }
 
+  installCompactPopup();
   await loadFeatureList();
 }
 
-const copyAction = new ActionButton({
-  id: "copy-selected-id",
-  title: CONFIG.copyActionTitle,
-  icon: "copy"
-});
-
-popup.actions.add(copyAction);
-
+// Elk kaartpunt dat via de popup wordt geselecteerd, vult meteen het zijpaneel.
 reactiveUtils.watch(
-  () => popup.selectedFeature,
+  () => popup?.selectedFeature,
   (feature) => {
     if (!feature) return;
 
     const value = getAttribute(feature, CONFIG.copyField);
-    copyAction.disabled = value == null || String(value).trim() === "";
-
     if (value != null && String(value).trim() !== "") {
-      selectFeature(feature, { openDetails: true, scrollList: true });
+      selectFeature(feature, {
+        scrollList: true,
+        keepPopup: true
+      });
     }
   },
   { initial: true }
 );
-
-popup.addEventListener("arcgisTriggerAction", async (event) => {
-  if (event.detail.action.id !== copyAction.id) return;
-  await handleCopy(getAttribute(popup.selectedFeature, CONFIG.copyField));
-});
 
 copyDetailId.addEventListener("click", async () => {
   await handleCopy(getAttribute(selectedFeature, CONFIG.copyField));
@@ -196,6 +174,183 @@ clearSearchButton.addEventListener("click", () => {
   syncPager();
   searchInput.focus();
 });
+
+function installCompactPopup() {
+  if (!targetLayer) return;
+
+  const customContent = new CustomContent({
+    outFields: ["*"],
+    creator: (event) => createCompactPopupContent(event.graphic)
+  });
+
+  targetLayer.popupTemplate = new PopupTemplate({
+    outFields: ["*"],
+    title: `ID: {${CONFIG.copyField}}`,
+    content: [customContent],
+    overwriteActions: true,
+    actions: []
+  });
+
+  console.info("Compacte popup geïnstalleerd op:", targetLayer.title);
+}
+
+function createCompactPopupContent(feature) {
+  const root = document.createElement("div");
+  root.style.cssText = [
+    "font-family:Arial,Helvetica,sans-serif",
+    "font-size:12px",
+    "line-height:1.3",
+    "width:100%",
+    "max-width:390px",
+    "color:#17191c"
+  ].join(";");
+
+  const idValue = String(getAttribute(feature, CONFIG.copyField) ?? "—");
+  const locationValues = readFields(feature, fieldProfile?.locationFields || []);
+  const current = firstValue(feature, fieldProfile?.currentFields || []);
+  const rows = getConnectionRows(feature).slice(0, 7);
+
+  const card = document.createElement("div");
+  card.style.cssText = [
+    "display:flex",
+    "align-items:center",
+    "justify-content:space-between",
+    "gap:8px",
+    "background:#214b7b",
+    "color:white",
+    "padding:9px 10px",
+    "border-radius:5px"
+  ].join(";");
+
+  const cardText = document.createElement("div");
+  cardText.style.cssText = "min-width:0;display:flex;align-items:center;gap:8px";
+
+  const bolt = document.createElement("span");
+  bolt.textContent = "⚡";
+  bolt.style.cssText = "color:#ff814a;font-size:15px";
+
+  const labels = document.createElement("div");
+  labels.style.cssText = "min-width:0";
+
+  const type = document.createElement("strong");
+  type.textContent = "Elektrisch aansluitpunt";
+  type.style.cssText = "display:block;font-size:12px";
+
+  const idLine = document.createElement("span");
+  idLine.textContent = `ID: ${idValue}`;
+  idLine.style.cssText = "display:block;font-size:10px;margin-top:2px;overflow-wrap:anywhere";
+
+  labels.append(type, idLine);
+  cardText.append(bolt, labels);
+
+  const copyButton = document.createElement("button");
+  copyButton.type = "button";
+  copyButton.textContent = "⧉ Kopieer";
+  copyButton.style.cssText = [
+    "flex:0 0 auto",
+    "border:1px solid rgba(255,255,255,.45)",
+    "background:rgba(255,255,255,.08)",
+    "color:white",
+    "border-radius:3px",
+    "padding:5px 7px",
+    "font:inherit",
+    "font-size:10px",
+    "cursor:pointer"
+  ].join(";");
+  copyButton.addEventListener("click", async () => handleCopy(idValue));
+
+  card.append(cardText, copyButton);
+  root.append(card);
+
+  if (locationValues.length) {
+    const location = document.createElement("div");
+    location.style.cssText = "padding:8px 9px 7px";
+
+    const label = document.createElement("div");
+    label.textContent = "📍 LOCATIE";
+    label.style.cssText = "font-size:9px;color:#83878e;margin-bottom:2px";
+
+    const primary = document.createElement("div");
+    primary.textContent = locationValues[0];
+    primary.style.cssText = "font-size:11px";
+
+    location.append(label, primary);
+
+    if (locationValues.length > 1) {
+      const secondary = document.createElement("div");
+      secondary.textContent = locationValues.slice(1).join(" · ");
+      secondary.style.cssText = "font-size:10px;color:#565b63;margin-top:1px";
+      location.append(secondary);
+    }
+
+    root.append(location);
+  }
+
+  if (current != null || rows.length) {
+    const metrics = document.createElement("div");
+    metrics.style.cssText = [
+      "display:grid",
+      current != null && rows.length ? "grid-template-columns:135px minmax(0,1fr)" : "grid-template-columns:1fr",
+      "gap:6px",
+      "align-items:start"
+    ].join(";");
+
+    if (current != null) {
+      const currentBox = document.createElement("div");
+      currentBox.style.cssText = "background:#e7f3ff;border:1px solid #a9cfee;padding:8px 9px";
+
+      const currentLabel = document.createElement("div");
+      currentLabel.textContent = "TOTALE STROOMSTERKTE";
+      currentLabel.style.cssText = "font-size:8px;color:#3167a5";
+
+      const currentText = document.createElement("strong");
+      currentText.textContent = formatAmpere(current);
+      currentText.style.cssText = "display:block;font-size:12px;margin-top:2px";
+
+      currentBox.append(currentLabel, currentText);
+      metrics.append(currentBox);
+    }
+
+    if (rows.length) {
+      const table = document.createElement("div");
+      table.style.cssText = "border:1px solid #ededf0";
+
+      const head = document.createElement("div");
+      head.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr)65px;background:#f4f4f4;padding:5px 7px;font-weight:bold;font-size:9px";
+      head.innerHTML = "<span>Aansluitingen</span><span style='text-align:right'>Waarde</span>";
+      table.append(head);
+
+      rows.forEach((row, index) => {
+        const line = document.createElement("div");
+        line.style.cssText = [
+          "display:grid",
+          "grid-template-columns:minmax(0,1fr) 65px",
+          "padding:4px 7px",
+          "font-size:9px",
+          index % 2 === 0 ? "background:#fff0f0" : "background:#fff"
+        ].join(";");
+
+        const l = document.createElement("span");
+        l.textContent = row.label;
+
+        const v = document.createElement("span");
+        v.textContent = row.value;
+        v.style.textAlign = "right";
+
+        line.append(l, v);
+        table.append(line);
+      });
+
+      metrics.append(table);
+    }
+
+    root.append(metrics);
+  }
+
+  // Bewust compact gehouden zodat de popup normaal zonder interne scrollbar past.
+  root.style.marginBottom = "1px";
+  return root;
+}
 
 async function findLayerWithField(map, fieldName) {
   for (const layer of map.allLayers.toArray()) {
@@ -252,7 +407,7 @@ function renderFeatureList() {
   featureListElement.replaceChildren();
 
   resultCount.textContent = `${filteredFeatures.length} ${
-    filteredFeatures.length === 1 ? "aansluitpunt" : "aansluitpunten"
+    filteredFeatures.length === 1 ? "aansluiting" : "aansluitingen"
   }`;
 
   emptyState.hidden = filteredFeatures.length !== 0;
@@ -292,7 +447,11 @@ function renderFeatureList() {
 
     openButton.append(type, id, secondaryEl);
     openButton.addEventListener("click", () =>
-      selectFeature(feature, { zoom: true, openPopup: true, openDetails: true })
+      selectFeature(feature, {
+        zoom: true,
+        openPopup: true,
+        scrollList: false
+      })
     );
 
     const copyButton = document.createElement("button");
@@ -327,8 +486,9 @@ async function selectFeature(feature, options = {}) {
   updateSelectedListItem(options.scrollList === true);
   syncPager();
 
-  if (options.openDetails) {
-    showPanel("details");
+  // Op mobiel het zijpaneel automatisch openen bij kaartselectie.
+  if (window.innerWidth <= 900) {
+    sidePanel.classList.add("is-open");
   }
 
   if (options.zoom && feature.geometry) {
@@ -348,10 +508,6 @@ async function selectFeature(feature, options = {}) {
     } catch (error) {
       console.warn("Popup openen mislukt:", error);
     }
-  }
-
-  if (window.innerWidth <= 900 && options.openDetails) {
-    sidePanel.classList.add("is-open");
   }
 }
 
@@ -380,19 +536,8 @@ function renderDetails(feature) {
     currentValue.textContent = formatAmpere(current);
   }
 
+  const rows = getConnectionRows(feature);
   attributeRows.replaceChildren();
-
-  const rows = [];
-  for (const fieldName of fieldProfile.connectionFields) {
-    const field = targetLayer.fields.find((f) => f.name === fieldName);
-    const value = getAttribute(feature, fieldName);
-    if (value == null || String(value).trim() === "") continue;
-    rows.push({
-      label: field?.alias || fieldName,
-      value: formatAttributeValue(value)
-    });
-  }
-
   attributesBlock.hidden = rows.length === 0;
 
   for (const row of rows.slice(0, 7)) {
@@ -411,7 +556,24 @@ function renderDetails(feature) {
   }
 }
 
-function navigateRelative(delta) {
+function getConnectionRows(feature) {
+  const rows = [];
+
+  for (const fieldName of fieldProfile?.connectionFields || []) {
+    const field = targetLayer.fields.find((f) => f.name === fieldName);
+    const value = getAttribute(feature, fieldName);
+    if (value == null || String(value).trim() === "") continue;
+
+    rows.push({
+      label: field?.alias || fieldName,
+      value: formatAttributeValue(value)
+    });
+  }
+
+  return rows;
+}
+
+async function navigateRelative(delta) {
   if (!filteredFeatures.length) return;
 
   let index = selectedIndex;
@@ -420,12 +582,50 @@ function navigateRelative(delta) {
   const next = index + delta;
   if (next < 0 || next >= filteredFeatures.length) return;
 
-  selectFeature(filteredFeatures[next], {
-    zoom: true,
+  const feature = filteredFeatures[next];
+
+  // Eerst de detailselectie bijwerken.
+  await selectFeature(feature, {
+    zoom: false,
     openPopup: false,
-    openDetails: true,
-    scrollList: true
+    scrollList: false
   });
+
+  // Daarna altijd expliciet naar het gekozen punt centreren en inzoomen.
+  if (feature.geometry) {
+    try {
+      previousFeatureButton.disabled = true;
+      nextFeatureButton.disabled = true;
+
+      await view.goTo(
+        {
+          target: feature.geometry,
+          zoom: PAGER_ZOOM_LEVEL
+        },
+        {
+          duration: 700,
+          easing: "ease-in-out"
+        }
+      );
+
+      // Popup pas na de kaartanimatie openen, zodat hij bij het nieuwe punt staat.
+      await popup.open({
+        features: [feature],
+        location: feature.geometry
+      });
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.warn("Navigeren naar aansluitpunt mislukt:", error);
+        showToast("Kon niet naar het aansluitpunt zoomen.", true);
+      }
+    } finally {
+      syncPager();
+    }
+  } else {
+    console.warn("Geselecteerd aansluitpunt heeft geen geometrie:", feature);
+    showToast("Dit aansluitpunt heeft geen kaartgeometrie.", true);
+    syncPager();
+  }
 }
 
 function syncPager() {
