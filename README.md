@@ -1,21 +1,26 @@
-# Stroomaansluitingen — v14 field fix
+# Stroomaansluitingen — v15 beste laagselectie
 
-Deze versie corrigeert het uitlezen van `TOTAAL_VERMOGEN` en de blauwe/rode
-aansluitingen.
+Deze versie corrigeert een waarschijnlijke oorzaak van het ontbreken van de
+blauwe CEE-aansluitingen.
 
-Aanpassingen:
-- exacte veldnamen worden eerst gebruikt;
-- daarna wordt ook op alias en betekenisvolle tokens gezocht;
-- numerieke waarden worden robuust geparsed, ook bij waarden zoals `63,0`,
-  `63 A` of Belgische duizendtallen;
-- totale stroomsterkte blijft altijd zichtbaar, zoals in de Arcade-expressie;
-- blauwe CEE-sectie wordt getoond zodra één van de blauwe waarden niet 0 is;
-- rode CEE-sectie werkt hetzelfde;
-- in de browserconsole staat een tabel `Opgeloste attribuutvelden`;
-- bij elke selectie worden de ruwe relevante waarden gelogd.
+In eerdere versies werd de **eerste** featurelaag gekozen die
+`AANSLUITPUNT_ID` bevatte. Als de WebMap meerdere lagen met dat veld heeft, kan
+daardoor een laag gekozen worden waarin `BLAUW_230V_*` of `TOTAAL_VERMOGEN`
+niet aanwezig is.
 
-De popup blijft volledig uitgeschakeld.
+v15:
+- onderzoekt alle featurelagen met `AANSLUITPUNT_ID`;
+- scoort ze op de volledige veldset uit de Arcade-expressie;
+- kiest automatisch de laag met de meeste relevante velden;
+- geeft extra gewicht aan `TOTAAL_VERMOGEN` en de drie blauwe 230 V-velden;
+- logt in de console alle kandidaatlagen en de gekozen laag;
+- logt de werkelijke field names als belangrijke velden nog ontbreken.
 
 Na deployment moet de console tonen:
 
-`Stroomaansluitingen app v14.0.0`
+`Stroomaansluitingen app v15.0.0`
+
+Zoek daarna in de console naar:
+- `Kandidaatlagen voor stroomaansluitingen`
+- `Gekozen doellaag`
+- `Opgeloste attribuutvelden`

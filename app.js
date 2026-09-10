@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=14";
+import { CONFIG } from "./config.js?v=15";
 
-const APP_VERSION = "14.0.0";
+const APP_VERSION = "15.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
@@ -143,7 +143,7 @@ await mapElement.viewOnReady();
 
 const view = mapElement.view;
 
-targetLayer = await findLayerWithField(webmap, CONFIG.copyField);
+targetLayer = await findBestArcadeLayer(webmap);
 
 if (!targetLayer) {
   throw new Error(`Geen featurelaag gevonden met veld ${CONFIG.copyField}.`);
@@ -155,6 +155,28 @@ FIELD = resolveFields(targetLayer.fields);
 
 console.info("Opgeloste attribuutvelden:");
 console.table(FIELD);
+
+const missingImportant = [
+  "totaal",
+  "blauw16",
+  "blauw32",
+  "blauw63"
+].filter((key) => !FIELD[key]);
+
+if (missingImportant.length) {
+  console.warn(
+    "Belangrijke velden ontbreken nog in de gekozen laag:",
+    missingImportant
+  );
+  console.info(
+    "Werkelijke field names in de gekozen laag:",
+    targetLayer.fields.map((field) => ({
+      name: field.name,
+      alias: field.alias,
+      type: field.type
+    }))
+  );
+}
 
 // Geen popups op de kaart: alle details gaan uitsluitend naar de zijbalk.
 for (const layer of webmap.allLayers.toArray()) {
@@ -200,26 +222,92 @@ copyDetailId.addEventListener("click", async () => {
 previousFeatureButton.addEventListener("click", () => navigateRelative(-1));
 nextFeatureButton.addEventListener("click", () => navigateRelative(1));
 
-async function findLayerWithField(map, fieldName) {
+async function findBestArcadeLayer(map) {
+  // Er kunnen meerdere featurelagen met AANSLUITPUNT_ID in de WebMap zitten.
+  // Daarom nemen we niet langer de "eerste" match, maar de laag die de meeste
+  // velden uit de aangeleverde Arcade-expressie werkelijk bevat.
+  const expectedFields = [
+    "AANSLUITPUNT_ID",
+    "Adres",
+    "Omschrijving_locatie",
+    "TOTAAL_VERMOGEN",
+    "STOPCONTACT_16A",
+    "BLAUW_230V_16A",
+    "BLAUW_230V_32A",
+    "BLAUW_230V_63A",
+    "ROOD_380V_16A",
+    "ROOD_380V_32A",
+    "ROOD_380V_63A",
+    "ROOD_380V_125A",
+    "ROOD_380V_250A"
+  ];
+
+  const candidates = [];
+
   for (const layer of map.allLayers.toArray()) {
     if (layer.type !== "feature") continue;
 
     try {
       await layer.load();
-      const hasField = layer.fields?.some(
-        (field) => field.name.toLowerCase() === fieldName.toLowerCase()
+
+      const names = new Set(
+        (layer.fields || []).map((field) => field.name.toLowerCase())
       );
 
-      if (hasField) {
-        console.info("Doellaag:", layer.title);
-        return layer;
+      if (!names.has(CONFIG.copyField.toLowerCase())) {
+        continue;
       }
+
+      const matches = expectedFields.filter((name) =>
+        names.has(name.toLowerCase())
+      );
+
+      // ID is verplicht; TOTAAL + blauwe/rode velden wegen extra zwaar.
+      let score = matches.length;
+
+      if (names.has("totaal_vermogen")) score += 5;
+      if (names.has("blauw_230v_16a")) score += 4;
+      if (names.has("blauw_230v_32a")) score += 4;
+      if (names.has("blauw_230v_63a")) score += 4;
+      if (names.has("rood_380v_16a")) score += 2;
+      if (names.has("rood_380v_32a")) score += 2;
+      if (names.has("rood_380v_63a")) score += 2;
+
+      candidates.push({
+        layer,
+        score,
+        matchedFields: matches
+      });
     } catch (error) {
       console.warn(`Laag overslaan: ${layer.title}`, error);
     }
   }
 
-  return null;
+  if (!candidates.length) {
+    return null;
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  console.group("Kandidaatlagen voor stroomaansluitingen");
+  for (const candidate of candidates) {
+    console.info(candidate.layer.title, {
+      score: candidate.score,
+      matchedFields: candidate.matchedFields
+    });
+  }
+  console.groupEnd();
+
+  const best = candidates[0];
+
+  console.info("Gekozen doellaag:", {
+    title: best.layer.title,
+    score: best.score,
+    matchedFields: best.matchedFields,
+    url: best.layer.url
+  });
+
+  return best.layer;
 }
 
 function resolveFields(fields) {
