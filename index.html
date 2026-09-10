@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ArcGIS – Kopieer ID</title>
+
+  <!-- ArcGIS Maps SDK for JavaScript 5.1 -->
+  <script type="module" src="https://js.arcgis.com/5.1/"></script>
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <arcgis-map id="map" popup-component-enabled>
+    <arcgis-zoom slot="top-left"></arcgis-zoom>
+    <arcgis-home slot="top-left"></arcgis-home>
+    <arcgis-search slot="top-right"></arcgis-search>
+  </arcgis-map>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
