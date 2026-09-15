@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=23";
+import { CONFIG } from "./config.js?v=24";
 
-const APP_VERSION = "23.0.0";
+const APP_VERSION = "24.0.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
@@ -674,7 +674,7 @@ function createSelectedPointCard(feature) {
   const id = textFieldValue(feature, "id") || "—";
   const adres = textFieldValue(feature, "adres");
   const ligging = textFieldValue(feature, "ligging");
-  const totaal = numericFieldValue(feature, "totaal");
+  const totaalRaw = getFieldValue(feature, "totaal");
 
   // Header
   const header = document.createElement("div");
@@ -756,7 +756,7 @@ function createSelectedPointCard(feature) {
   totalLabel.textContent = "Totale stroomsterkte";
 
   const totalValue = document.createElement("strong");
-  totalValue.textContent = `${formatNumber(totaal)} A`;
+  totalValue.textContent = formatTotalDisplayValue(totaalRaw);
 
   total.append(totalLabel, totalValue);
   card.appendChild(total);
@@ -1161,7 +1161,6 @@ function renderDetails(feature) {
   const ligging = textFieldValue(feature, "ligging");
 
   const totaalRaw = getFieldValue(feature, "totaal");
-  const totaal = parseNumericValue(totaalRaw);
 
   headerId.textContent = `ID: ${id}`;
   footerId.textContent = `ID: ${id}`;
@@ -1169,8 +1168,9 @@ function renderDetails(feature) {
   adresElement.textContent = adres;
   liggingElement.textContent = ligging;
 
-  // Net zoals in de Arcade-expressie blijft deze sectie altijd zichtbaar.
-  totaalElement.textContent = `${formatNumber(totaal)} A`;
+  // TOTAAL_VERMOGEN kan ook tekst bevatten, bv. "150 (MKT2+EVN2)".
+  // Toon daarom de volledige veldwaarde i.p.v. die altijd numeriek te parsen.
+  totaalElement.textContent = formatTotalDisplayValue(totaalRaw);
 
   stopcontactSection.replaceChildren();
   blauwSection.replaceChildren();
@@ -1346,6 +1346,32 @@ function textFieldValue(feature, semanticKey) {
 
 function numericFieldValue(feature, semanticKey) {
   return parseNumericValue(getFieldValue(feature, semanticKey));
+}
+
+function formatTotalDisplayValue(raw) {
+  if (raw == null || String(raw).trim() === "") {
+    return "0 A";
+  }
+
+  if (typeof raw === "number") {
+    return `${formatNumber(raw)} A`;
+  }
+
+  const text = String(raw).trim();
+
+  // Als het veld alleen een getal bevat, behouden we de bestaande "A"-weergave.
+  // Voor tekstwaarden (bv. "150 (MKT2+EVN2)") tonen we exact de volledige inhoud.
+  const normalized = text
+    .replace(/\s+/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  if (/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) {
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? `${formatNumber(numeric)} A` : text;
+  }
+
+  return text;
 }
 
 // Robuuster dan Number(value):
