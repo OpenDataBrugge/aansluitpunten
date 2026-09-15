@@ -7,7 +7,7 @@
   <title>Stroomaansluitingen | Stad Brugge</title>
 
   <script type="module" src="https://js.arcgis.com/5.1/"></script>
-  <link rel="stylesheet" href="./styles.css?v=16" />
+  <link rel="stylesheet" href="./styles.css?v=23" />
 </head>
 
 <body>
@@ -26,22 +26,100 @@
       </div>
     </div>
 
-    <button id="mobilePanelToggle" class="mobile-toggle" type="button" aria-label="Toon zijpaneel">☰</button>
+    <div class="header-actions">
+      <button id="helpButton" class="header-help-button" type="button" aria-label="Help">
+        <span aria-hidden="true">?</span>
+        <span class="header-help-label">Help</span>
+      </button>
+
+      <button id="mobilePanelToggle" class="mobile-toggle" type="button" aria-label="Toon zijpaneel">☰</button>
+    </div>
   </header>
 
   <main class="app-shell">
-    <aside id="sidePanel" class="side-panel">
-      <div class="pager">
+    <aside id="sidePanel" class="side-panel" aria-label="Selectie en details">
+      <div class="mobile-sheet-bar">
+        <div class="mobile-sheet-handle" aria-hidden="true"></div>
+        <div class="mobile-sheet-row">
+          <strong>Selectie &amp; details</strong>
+          <button id="mobilePanelClose" class="mobile-panel-close" type="button" aria-label="Sluit selectie en details">×</button>
+        </div>
+      </div>
+
+      <div class="selection-mode-switch" role="group" aria-label="Selectiemodus">
+        <button id="singleModeButton" class="selection-mode-button is-active" type="button" aria-pressed="true">
+          <span class="selection-mode-icon" aria-hidden="true">●</span>
+          <span>
+            <strong>1 punt</strong>
+            <small>Klik op de kaart</small>
+          </span>
+        </button>
+
+        <button id="areaModeButton" class="selection-mode-button" type="button" aria-pressed="false">
+          <span class="selection-mode-icon" aria-hidden="true">⬡</span>
+          <span>
+            <strong>Meerdere punten</strong>
+            <small>Teken een gebied</small>
+          </span>
+        </button>
+      </div>
+
+      <div id="singleModePanel">
+        <div class="pager">
         <button id="previousFeature" class="pager-button" type="button" aria-label="Vorige aansluiting">&lt;</button>
         <span id="pagerText">0 van 0</span>
         <button id="nextFeature" class="pager-button" type="button" aria-label="Volgende aansluiting">&gt;</button>
+        </div>
       </div>
 
-      <section class="details-scroll">
+      <div id="areaModePanel" class="is-hidden">
+        <section class="area-tools" aria-label="Gebiedsselectie">
+        <div class="area-tools-buttons">
+          <button id="drawAreaButton" class="area-button area-button-primary" type="button">
+            <span aria-hidden="true">⬡</span>
+            <span id="drawAreaButtonText">Selecteer gebied</span>
+          </button>
+
+          <button id="clearAreaButton" class="area-button area-button-secondary" type="button" disabled>
+            Wis selectie
+          </button>
+        </div>
+
+        <div id="areaInstruction" class="area-instruction">
+          Teken een polygoon om meerdere stroompunten te selecteren.
+        </div>
+
+        <div id="areaSelectionResult" class="area-selection-result is-hidden">
+          <div class="area-result-text">
+            <strong id="areaSelectionCount">0 stroompunten geselecteerd</strong>
+            <span>De ID's worden één per regel naar het klembord gekopieerd.</span>
+          </div>
+
+          <button id="copyAreaIdsButton" class="copy-area-button" type="button" disabled>
+            <span aria-hidden="true">⧉</span>
+            <span id="copyAreaIdsButtonText">Kopieer ID's</span>
+          </button>
+        </div>
+      </section>
+
+        <section class="area-details-scroll">
+          <div id="areaSelectedDetails" class="area-selected-details is-hidden" aria-live="polite"></div>
+
+          <div id="areaEmptyState" class="area-empty-state">
+            <div class="area-empty-icon">⬡</div>
+            <div>
+              <h1>Selecteer meerdere stroompunten</h1>
+              <p>Klik op <strong>Selecteer gebied</strong> en teken daarna een polygoon op de kaart.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section id="singleDetailsScroll" class="details-scroll">
         <div id="noSelection" class="empty-card">
           <div class="empty-bolt">⚡</div>
           <div>
-            <h1>Selecteer een stroomaansluiting</h1>
+            <h1>Selecteer één stroomaansluiting</h1>
             <p>Klik een punt op de kaart aan om de details te bekijken.</p>
           </div>
         </div>
@@ -98,8 +176,97 @@
     </section>
   </main>
 
+  <button
+    id="mobilePanelBackdrop"
+    class="mobile-panel-backdrop is-hidden"
+    type="button"
+    aria-label="Sluit selectie en details"
+    tabindex="-1"
+  ></button>
+
+  <div id="helpOverlay" class="help-overlay is-hidden" aria-hidden="true">
+    <section
+      id="helpDialog"
+      class="help-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="helpTitle"
+    >
+      <div class="help-dialog-header">
+        <div>
+          <div class="help-kicker">Stroomaansluitingen</div>
+          <h2 id="helpTitle">Hoe werkt dit loket?</h2>
+        </div>
+
+        <button id="closeHelpButton" class="help-close-button" type="button" aria-label="Sluit help">
+          ×
+        </button>
+      </div>
+
+      <div class="help-dialog-body">
+        <p>
+          Met dit loket kan je stroomaansluitpunten op de kaart bekijken en hun
+          ID snel kopiëren voor gebruik in een andere toepassing.
+        </p>
+
+        <div class="help-step">
+          <div class="help-step-number">1</div>
+          <div>
+            <h3>Eén stroompunt bekijken</h3>
+            <p>
+              Kies <strong>1 punt</strong> en klik een stroompunt op de kaart aan.
+              De details verschijnen in de zijbalk. Met <strong>Kopieer</strong>
+              zet je het aansluitpunt-ID op het klembord.
+            </p>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-number">2</div>
+          <div>
+            <h3>Bladeren tussen stroompunten</h3>
+            <p>
+              Gebruik de pijlen bij de teller om naar het vorige of volgende
+              stroompunt te gaan. De kaart zoomt automatisch naar het gekozen punt.
+            </p>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-number">3</div>
+          <div>
+            <h3>Meerdere stroompunten selecteren</h3>
+            <p>
+              Kies <strong>Meerdere punten</strong>, klik op
+              <strong>Selecteer gebied</strong> en teken een polygoon op de kaart.
+              Alle stroompunten in het gebied worden geselecteerd en hun details
+              verschijnen in de zijbalk.
+            </p>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-number">4</div>
+          <div>
+            <h3>Meerdere ID's kopiëren</h3>
+            <p>
+              Met <strong>Kopieer ID's</strong> kopieer je alle geselecteerde
+              aansluitpunt-ID's tegelijk, één per regel.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="help-dialog-footer">
+        <button id="closeHelpFooterButton" class="help-primary-button" type="button">
+          Begrepen
+        </button>
+      </div>
+    </section>
+  </div>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="./app.js?v=16"></script>
+  <script type="module" src="./app.js?v=23"></script>
 </body>
 </html>
