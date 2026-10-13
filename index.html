@@ -7,7 +7,7 @@
   <title>Stroomaansluitingen | Stad Brugge</title>
 
   <script type="module" src="https://js.arcgis.com/5.1/"></script>
-  <link rel="stylesheet" href="./styles.css?v=24" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 
 <body>
@@ -160,6 +160,11 @@
               <div id="roodSection"></div>
             </div>
 
+            <div id="opmerkingenSection" class="opmerkingen-section is-hidden">
+              <div class="opmerkingen-label">📝 Opmerkingen</div>
+              <div id="opmerkingenText" class="opmerkingen-text"></div>
+            </div>
+
             <div id="footerId" class="arcade-footer">ID: —</div>
           </div>
         </div>
@@ -258,6 +263,7 @@
       </div>
 
       <div class="help-dialog-footer">
+        <span class="help-build">Versie 26</span>
         <button id="closeHelpFooterButton" class="help-primary-button" type="button">
           Begrepen
         </button>
@@ -267,6 +273,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="./app.js?v=24"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

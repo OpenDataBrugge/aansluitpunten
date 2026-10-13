@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=24";
+import { CONFIG } from "./config.js";
 
-const APP_VERSION = "24.0.0";
+const APP_VERSION = "27.1.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +30,8 @@ const connectionsSection = $("connectionsSection");
 const stopcontactSection = $("stopcontactSection");
 const blauwSection = $("blauwSection");
 const roodSection = $("roodSection");
+const opmerkingenSection = $("opmerkingenSection");
+const opmerkingenText = $("opmerkingenText");
 
 const previousFeatureButton = $("previousFeature");
 const nextFeatureButton = $("nextFeature");
@@ -99,6 +101,10 @@ const FIELD_SPECS = {
       ["stroomsterkte", "totaal"]
     ]
   },
+  opmerkingen: {
+    exact: ["OPMERKINGEN"],
+    tokens: ["opmerkingen"]
+  },
   stop16: {
     exact: ["STOPCONTACT_16A"],
     tokens: ["stopcontact", "16"]
@@ -107,9 +113,13 @@ const FIELD_SPECS = {
     exact: ["BLAUW_230V_16A"],
     tokens: ["blauw", "230", "16"]
   },
-  blauw32: {
-    exact: ["BLAUW_230V_32A"],
-    tokens: ["blauw", "230", "32"]
+  blauw32_2F: {
+    exact: ["BLAUW_230V_32A_2F"],
+    tokens: ["blauw", "230", "32", "2f"]
+  },
+  blauw32_3F: {
+    exact: ["BLAUW_230V_32A_3F"],
+    tokens: ["blauw", "230", "32", "3f"]
   },
   blauw63: {
     exact: ["BLAUW_230V_63A"],
@@ -343,7 +353,8 @@ console.table(FIELD);
 const missingImportant = [
   "totaal",
   "blauw16",
-  "blauw32",
+  "blauw32_2F",
+  "blauw32_3F",
   "blauw63"
 ].filter((key) => !FIELD[key]);
 
@@ -674,7 +685,7 @@ function createSelectedPointCard(feature) {
   const id = textFieldValue(feature, "id") || "—";
   const adres = textFieldValue(feature, "adres");
   const ligging = textFieldValue(feature, "ligging");
-  const totaalRaw = getFieldValue(feature, "totaal");
+  const totaalRaw = getTotalRawValue(feature);
 
   // Header
   const header = document.createElement("div");
@@ -813,6 +824,21 @@ function createSelectedPointCard(feature) {
     card.appendChild(connections);
   }
 
+  // Opmerkingen onder de aansluitingen, alleen wanneer ingevuld.
+  const opmerkingen = textFieldValue(feature, "opmerkingen");
+  if (opmerkingen.trim()) {
+    const notes = document.createElement("div");
+    notes.className = "opmerkingen-section";
+    const notesLabel = document.createElement("div");
+    notesLabel.className = "opmerkingen-label";
+    notesLabel.textContent = "📝 Opmerkingen";
+    const notesContent = document.createElement("div");
+    notesContent.className = "opmerkingen-text";
+    notesContent.textContent = opmerkingen;
+    notes.append(notesLabel, notesContent);
+    card.appendChild(notes);
+  }
+
   const footer = document.createElement("div");
   footer.className = "selected-point-footer";
   footer.textContent = `ID: ${id}`;
@@ -826,7 +852,8 @@ function getConnectionData(feature) {
 
   const blueRows = [
     ["CEE 16 A", numericFieldValue(feature, "blauw16")],
-    ["CEE 32 A", numericFieldValue(feature, "blauw32")],
+    ["CEE 32 A — 2F", numericFieldValue(feature, "blauw32_2F")],
+    ["CEE 32 A — 3F", numericFieldValue(feature, "blauw32_3F")],
     ["CEE 63 A", numericFieldValue(feature, "blauw63")]
   ].filter(([, value]) => value !== 0);
 
@@ -968,10 +995,12 @@ async function findBestArcadeLayer(map) {
     "AANSLUITPUNT_ID",
     "Adres",
     "Omschrijving_locatie",
+    "OPMERKINGEN",
     "TOTAAL_VERMOGEN",
     "STOPCONTACT_16A",
     "BLAUW_230V_16A",
-    "BLAUW_230V_32A",
+    "BLAUW_230V_32A_2F",
+    "BLAUW_230V_32A_3F",
     "BLAUW_230V_63A",
     "ROOD_380V_16A",
     "ROOD_380V_32A",
@@ -1141,7 +1170,8 @@ function selectFeature(feature) {
     id: getFieldValue(feature, "id"),
     totaal: getFieldValue(feature, "totaal"),
     blauw16: getFieldValue(feature, "blauw16"),
-    blauw32: getFieldValue(feature, "blauw32"),
+    blauw32_2F: getFieldValue(feature, "blauw32_2F"),
+    blauw32_3F: getFieldValue(feature, "blauw32_3F"),
     blauw63: getFieldValue(feature, "blauw63"),
     rood16: getFieldValue(feature, "rood16"),
     rood32: getFieldValue(feature, "rood32"),
@@ -1160,7 +1190,7 @@ function renderDetails(feature) {
   const adres = textFieldValue(feature, "adres");
   const ligging = textFieldValue(feature, "ligging");
 
-  const totaalRaw = getFieldValue(feature, "totaal");
+  const totaalRaw = getTotalRawValue(feature);
 
   headerId.textContent = `ID: ${id}`;
   footerId.textContent = `ID: ${id}`;
@@ -1168,9 +1198,14 @@ function renderDetails(feature) {
   adresElement.textContent = adres;
   liggingElement.textContent = ligging;
 
+  const opmerkingen = textFieldValue(feature, "opmerkingen");
+  opmerkingenText.textContent = opmerkingen;
+  opmerkingenSection.classList.toggle("is-hidden", !opmerkingen.trim());
+
   // TOTAAL_VERMOGEN kan ook tekst bevatten, bv. "150 (MKT2+EVN2)".
   // Toon daarom de volledige veldwaarde i.p.v. die altijd numeriek te parsen.
   totaalElement.textContent = formatTotalDisplayValue(totaalRaw);
+  console.info("TOTAAL_VERMOGEN weergegeven:", totaalRaw);
 
   stopcontactSection.replaceChildren();
   blauwSection.replaceChildren();
@@ -1189,7 +1224,8 @@ function renderDetails(feature) {
 
   const blueRows = [
     ["CEE 16 A", numericFieldValue(feature, "blauw16")],
-    ["CEE 32 A", numericFieldValue(feature, "blauw32")],
+    ["CEE 32 A — 2F", numericFieldValue(feature, "blauw32_2F")],
+    ["CEE 32 A — 3F", numericFieldValue(feature, "blauw32_3F")],
     ["CEE 63 A", numericFieldValue(feature, "blauw63")]
   ].filter(([, value]) => value !== 0);
 
@@ -1348,6 +1384,78 @@ function numericFieldValue(feature, semanticKey) {
   return parseNumericValue(getFieldValue(feature, semanticKey));
 }
 
+function getTotalRawValue(feature) {
+  const attributes = feature?.attributes || {};
+  const fields = targetLayer?.fields || [];
+
+  // Verzamel alle kandidaatvelden die duidelijk "totaal vermogen" of
+  // "totale stroomsterkte" voorstellen.
+  const candidateNames = new Set();
+
+  const exactCandidates = [
+    "TOTAAL_VERMOGEN",
+    "TOTAAL_STROOMSTERKTE",
+    "TOTALE_STROOMSTERKTE",
+    "STROOMSTERKTE_TOTAAL"
+  ];
+
+  for (const wanted of exactCandidates) {
+    const key = Object.keys(attributes).find(
+      (name) => name.toLowerCase() === wanted.toLowerCase()
+    );
+    if (key) candidateNames.add(key);
+  }
+
+  if (FIELD?.totaal) {
+    candidateNames.add(FIELD.totaal);
+  }
+
+  for (const field of fields) {
+    const text = normalizeFieldText(`${field.name} ${field.alias || ""}`);
+
+    const isTotalPower =
+      (text.includes("totaal") && text.includes("vermogen")) ||
+      (text.includes("totaal") && text.includes("stroomsterkte")) ||
+      (text.includes("totale") && text.includes("stroomsterkte"));
+
+    if (isTotalPower) {
+      candidateNames.add(field.name);
+    }
+  }
+
+  const candidates = [...candidateNames]
+    .map((name) => ({
+      name,
+      value: attributes[name]
+    }))
+    .filter(({ value }) => value != null && String(value).trim() !== "");
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  // Geef voorrang aan informatieve tekstwaarden zoals "150 (MKT2+EVN2)".
+  const richText = candidates.find(({ value }) => {
+    if (typeof value !== "string") return false;
+    const text = value.trim();
+    return /[A-Za-z()]/.test(text) && text !== "0";
+  });
+
+  if (richText) {
+    return richText.value;
+  }
+
+  // Daarna een niet-nulwaarde.
+  const nonZero = candidates.find(({ value }) => {
+    if (typeof value === "number") return value !== 0;
+    const text = String(value).trim();
+    if (text === "0" || text === "0,0" || text === "0.0") return false;
+    return true;
+  });
+
+  return (nonZero || candidates[0]).value;
+}
+
 function formatTotalDisplayValue(raw) {
   if (raw == null || String(raw).trim() === "") {
     return "0 A";
@@ -1359,19 +1467,41 @@ function formatTotalDisplayValue(raw) {
 
   const text = String(raw).trim();
 
-  // Als het veld alleen een getal bevat, behouden we de bestaande "A"-weergave.
-  // Voor tekstwaarden (bv. "150 (MKT2+EVN2)") tonen we exact de volledige inhoud.
-  const normalized = text
-    .replace(/\s+/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+  // Toon in de fiche enkel de eerste numerieke waarde uit het veld.
+  // Voorbeeld:
+  // "150 (MKT2+EVN2)" -> "150 A"
+  // De cijfers 2 en 2 uit MKT2/EVN2 worden bewust genegeerd.
+  const match = text.match(/[+-]?\d[\d\s.,]*/);
 
-  if (/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) {
-    const numeric = Number(normalized);
-    return Number.isFinite(numeric) ? `${formatNumber(numeric)} A` : text;
+  if (!match) {
+    return "0 A";
   }
 
-  return text;
+  let numericText = match[0].trim();
+
+  // Verwijder eventuele losse spaties in duizendtallen.
+  numericText = numericText.replace(/\s+/g, "");
+
+  const hasComma = numericText.includes(",");
+  const hasDot = numericText.includes(".");
+
+  if (hasComma && hasDot) {
+    if (numericText.lastIndexOf(",") > numericText.lastIndexOf(".")) {
+      // Belgische notatie: 1.250,5
+      numericText = numericText.replace(/\./g, "").replace(",", ".");
+    } else {
+      // Engelse notatie: 1,250.5
+      numericText = numericText.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    numericText = numericText.replace(",", ".");
+  }
+
+  const numeric = Number(numericText);
+
+  return Number.isFinite(numeric)
+    ? `${formatNumber(numeric)} A`
+    : "0 A";
 }
 
 // Robuuster dan Number(value):
@@ -1422,14 +1552,21 @@ function formatNumber(value) {
 function getCopyId(value) {
   if (value == null) return "";
 
+  // trim() verwijdert ook veel Unicode-whitespace aan begin/einde.
   const text = String(value).trim();
   if (!text) return "";
 
-  return text.split(/\s+/)[0];
+  // Kopieer expliciet alleen tot aan de eerste whitespace.
+  // Dit vangt gewone spaties, tabs, non-breaking spaces en andere
+  // Unicode-spaties op.
+  const match = text.match(/^[^\s\u00A0\u202F\u2000-\u200B]+/u);
+
+  return match ? match[0] : "";
 }
 
 async function handleCopy(value) {
   const copyValue = getCopyId(value);
+  console.info("ID kopiëren:", { volledig: value, gekopieerd: copyValue });
 
   if (!copyValue) {
     showToast(`Veld ${CONFIG.copyField} is leeg.`, true);
