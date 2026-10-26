@@ -1,11 +1,12 @@
 import { CONFIG } from "./config.js";
 
-const APP_VERSION = "27.1.0";
+const APP_VERSION = "27.2.0";
 console.info(`Stroomaansluitingen app v${APP_VERSION}`);
 
 const $ = (id) => document.getElementById(id);
 
 const mapElement = $("map");
+const searchElement = $("pointSearch");
 const toastElement = $("toast");
 const sidePanel = $("sidePanel");
 const mobilePanelToggle = $("mobilePanelToggle");
@@ -387,6 +388,12 @@ try {
 }
 
 await loadFeatureIndex();
+try {
+  await configurePointSearch();
+} catch (error) {
+  // Een zoekconfiguratiefout mag kaartselectie en navigatie niet blokkeren.
+  console.error("Instellen ID-zoekfunctie mislukt:", error);
+}
 
 view.on("click", async (event) => {
   if (selectionMode !== "single" || areaDrawing) return;
@@ -1147,6 +1154,64 @@ async function loadFeatureIndex() {
 
   console.info(`${allFeatures.length} aansluitpunten geladen.`);
   syncPager();
+}
+
+// Gebruik de bestaande zoekbalk voor zowel adressen (standaard geocoder)
+// als het AANSLUITPUNT_ID van de gekozen featurelaag.
+async function configurePointSearch() {
+  if (!FIELD?.id) {
+    console.warn("ID-zoekbron niet ingesteld: veld AANSLUITPUNT_ID ontbreekt.");
+    return;
+  }
+
+  await searchElement.componentOnReady();
+
+  // De bestaande standaardzoekbronnen, waaronder adreszoeken, blijven actief.
+  // Alleen de ID-zoekbron wordt toegevoegd.
+  searchElement.sources = [
+    {
+      layer: targetLayer,
+      name: "Aansluitpunt-ID",
+      placeholder: "Zoek aansluitpunt-ID",
+      searchFields: [FIELD.id],
+      displayField: FIELD.id,
+      outFields: ["*"],
+      exactMatch: false,
+      suggestionsEnabled: true,
+      minSuggestCharacters: 1,
+      maxSuggestions: 8,
+      zoomScale: 4000,
+      popupEnabled: false
+    }
+  ];
+  searchElement.includeDefaultSourcesDisabled = false;
+  searchElement.allPlaceholder = "Zoek adres of aansluitpunt-ID";
+  searchElement.popupDisabled = true;
+  // -1 zoekt over alle bronnen tegelijk, zonder eerst een bron te kiezen.
+  searchElement.activeSourceIndex = -1;
+
+  searchElement.addEventListener("arcgisSelectResult", (event) => {
+    const { source, result } = event.detail || {};
+    if (source?.layer !== targetLayer || !result?.feature) return;
+
+    const resultOid = getObjectId(result.feature);
+    const resultId = getFieldValue(result.feature, "id");
+
+    // Kies het volledig geladen record, zodat alle velden in de details staan.
+    const feature = allFeatures.find((candidate) => {
+      const oid = getObjectId(candidate);
+      if (resultOid != null && oid != null) {
+        return String(oid) === String(resultOid);
+      }
+
+      const id = getFieldValue(candidate, "id");
+      return resultId != null && id != null && String(id) === String(resultId);
+    }) || result.feature;
+
+    // Bij een ID-zoekresultaat altijd de bijbehorende detailfiche tonen.
+    if (selectionMode !== "single") setSelectionMode("single");
+    selectFeature(feature);
+  });
 }
 
 function selectFeature(feature) {

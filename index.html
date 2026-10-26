@@ -120,7 +120,7 @@
           <div class="empty-bolt">⚡</div>
           <div>
             <h1>Selecteer één stroomaansluiting</h1>
-            <p>Klik een punt op de kaart aan om de details te bekijken.</p>
+            <p>Klik een punt op de kaart aan of zoek op adres of aansluitpunt-ID om de details te bekijken.</p>
           </div>
         </div>
 
@@ -176,7 +176,7 @@
         <arcgis-zoom slot="top-left"></arcgis-zoom>
         <arcgis-home slot="top-left"></arcgis-home>
         <arcgis-locate slot="top-left"></arcgis-locate>
-        <arcgis-search slot="top-right"></arcgis-search>
+        <arcgis-search id="pointSearch" slot="top-right" all-placeholder="Zoek adres of aansluitpunt-ID" active-source-index="-1" popup-disabled></arcgis-search>
       </arcgis-map>
     </section>
   </main>
@@ -219,8 +219,9 @@
           <div>
             <h3>Eén stroompunt bekijken</h3>
             <p>
-              Kies <strong>1 punt</strong> en klik een stroompunt op de kaart aan.
-              De details verschijnen in de zijbalk. Met <strong>Kopieer</strong>
+              Kies <strong>1 punt</strong> en klik een stroompunt op de kaart aan,
+              of zoek rechtsboven op <strong>adres</strong> of <strong>AANSLUITPUNT_ID</strong>.
+              Bij zoeken op ID verschijnen de details in de zijbalk. Met <strong>Kopieer</strong>
               zet je het aansluitpunt-ID op het klembord.
             </p>
           </div>
@@ -263,7 +264,7 @@
       </div>
 
       <div class="help-dialog-footer">
-        <span class="help-build">Versie 26</span>
+        <span class="help-build">Versie 27.2.0</span>
         <button id="closeHelpFooterButton" class="help-primary-button" type="button">
           Begrepen
         </button>
